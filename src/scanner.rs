@@ -16,8 +16,9 @@ pub struct Scanner<'src> {
     column: usize,
 
     source: &'src str,
-    start: usize,
-    len: usize,
+    start_byte: usize,
+    len_bytes: usize,
+    current_char: usize,
 }
 
 impl<'src> Scanner<'src> {
@@ -31,8 +32,9 @@ impl<'src> Scanner<'src> {
             column: 0,
 
             source,
-            start: 0,
-            len: 0,
+            start_byte: 0,
+            len_bytes: 0,
+            current_char: 0,
         }
     }
 
@@ -46,7 +48,8 @@ impl<'src> Scanner<'src> {
             self.column = 0;
             self.line += 1;
         }
-        self.len += grapheme.as_bytes().len();
+        self.len_bytes += grapheme.as_bytes().len();
+        self.current_char += grapheme.chars().count();
 
         grapheme
     }
@@ -88,8 +91,8 @@ impl<'src> Scanner<'src> {
             return Token::eof();
         }
 
-        self.start += self.len;
-        self.len = 0;
+        self.start_byte += self.len_bytes;
+        self.len_bytes = 0;
         let type_ = match self.next_grapheme() {
             "[" => TokenType::LeftBracket,
             "]" => TokenType::RightBracket,
@@ -180,15 +183,19 @@ impl<'src> Scanner<'src> {
             pos: Pos::Source {
                 line: self.line,
                 col: self.column,
+                char: self.current_char,
+                byte: self.start_byte,
             },
         }
     }
 
     fn lexeme(&self) -> &'src str {
-        if self.start >= self.source.len() || self.start + self.len >= self.source.len() {
+        if self.start_byte >= self.source.len()
+            || self.start_byte + self.len_bytes >= self.source.len()
+        {
             ""
         } else {
-            &self.source[self.start..self.start + self.len]
+            &self.source[self.start_byte..self.start_byte + self.len_bytes]
         }
     }
 

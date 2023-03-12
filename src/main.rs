@@ -82,7 +82,10 @@ type Point[Math[n]] has {
 
 fn main() {
     //let src = SOURCE;
-    let src = "type Pea[nut] has { a_huge_head: Bool fart: nut }";
+    let src = "type Point[Math[n]] has {
+        x: n
+        Loooooonnnnng: n
+    }";
 
     let mut scanner = Scanner::new(src);
     let mut tokens = vec![];
@@ -91,6 +94,11 @@ fn main() {
     }
     print_tokens(&tokens);
 
-    let ast = parser::parse(src).unwrap();
-    println!("{:#?}", ast);
+    match parser::parse(src) {
+        Ok(ast) => println!("{:#?}", ast),
+        Err(err) => {
+            println!("{:?}", err);
+            err.report().print(ariadne::Source::from(src)).unwrap();
+        }
+    }
 }

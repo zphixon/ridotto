@@ -28,12 +28,35 @@ pub enum DeclTypeSpec<'src> {
 #[derive(Debug)]
 pub struct Type<'src> {
     pub decl_type_spec: DeclTypeSpec<'src>,
-    pub has: Option<Has<'src>>,
+    pub inner: TypeInner<'src>,
+}
+
+#[derive(Debug)]
+pub enum TypeInner<'src> {
+    Alias {
+        decl_type_spec: DeclTypeSpec<'src>,
+    },
+
+    Regular {
+        has: Option<Has<'src>>,
+        is: Option<Is<'src>>,
+        does: Option<Does<'src>>,
+    },
 }
 
 #[derive(Debug)]
 pub struct Has<'src> {
     pub annotated: Vec<Annotated<'src>>,
+}
+
+#[derive(Debug)]
+pub struct Is<'src> {
+    pub variants: Vec<Token<'src>>,
+}
+
+#[derive(Debug)]
+pub struct Does<'src> {
+    todo: Token<'src>,
 }
 
 #[derive(Debug)]

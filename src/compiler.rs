@@ -140,37 +140,25 @@ pub enum Pos {
     Source {
         line: usize,
         col: usize,
+        char: usize,
+        byte: usize,
     },
     #[default]
     Builtin,
 }
 
 impl Pos {
-    pub(crate) fn line(&self) -> usize {
+    pub fn line(&self) -> usize {
         match self {
             Pos::Source { line, .. } => *line,
             _ => panic!("called line on builtin pos"),
         }
     }
 
-    pub(crate) fn inc_line(&mut self) {
+    pub fn byte(&self) -> usize {
         match self {
-            Pos::Source { line, .. } => *line += 1,
-            _ => panic!("called inc_line on builtin pos"),
-        }
-    }
-
-    pub(crate) fn inc_col(&mut self) {
-        match self {
-            Pos::Source { col, .. } => *col += 1,
-            _ => panic!("called inc_col on builtin pos"),
-        }
-    }
-
-    pub(crate) fn reset_col(&mut self) {
-        match self {
-            Pos::Source { col, .. } => *col = 1,
-            _ => panic!("called inc_col on builtin pos"),
+            Pos::Source { byte, .. } => *byte,
+            _ => panic!("called byte on builtin pos"),
         }
     }
 }
@@ -178,7 +166,7 @@ impl Pos {
 impl fmt::Display for Pos {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Pos::Source { line, col } => write!(f, "{line}:{col}"),
+            Pos::Source { line, col, .. } => write!(f, "{line}:{col}"),
             Pos::Builtin => write!(f, "builtin"),
         }
     }

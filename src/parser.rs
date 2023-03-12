@@ -1,3 +1,5 @@
+use std::{collections::HashSet, ops::Index};
+
 use crate::{
     ast::*,
     compiler::{Token, TokenType},
@@ -15,18 +17,68 @@ fn parse_type_decl<'src>(scanner: &mut Scanner<'src>) -> Result<Type<'src>, Rido
 
     let decl_type_spec = parse_decl_type_spec(scanner)?;
 
-    // TODO alias
+    let inner = match scanner.peek_token().type_ {
+        TokenType::Equal => {
+            scanner.next_token();
+            let decl_type_spec = parse_decl_type_spec(scanner)?;
+            TypeInner::Alias { decl_type_spec }
+        }
 
-    let has = if scanner.peek_token().type_ == TokenType::Has {
-        Some(parse_has(scanner)?)
-    } else {
-        None
+        _ => parse_type_decl_inner(scanner)?,
     };
 
     Ok(Type {
         decl_type_spec,
-        has,
+        inner,
     })
+}
+
+fn parse_type_decl_inner<'src>(
+    scanner: &mut Scanner<'src>,
+) -> Result<TypeInner<'src>, RidottoError> {
+    let mut expected = Vec::from_iter([TokenType::Is, TokenType::Has, TokenType::Does]);
+    let mut has = None;
+    let is = None;
+    let does = None;
+
+    match scanner.peek_token().type_ {
+        TokenType::Has if expected.contains(&TokenType::Has) => {
+            expected.swap_remove(
+                expected
+                    .iter()
+                    .position(|&tt| tt == TokenType::Has)
+                    .unwrap(),
+            );
+
+            has = Some(parse_has(scanner)?);
+        }
+
+        TokenType::Is if expected.contains(&TokenType::Is) => {
+            expected.swap_remove(expected.iter().position(|&tt| tt == TokenType::Is).unwrap());
+        }
+
+        TokenType::Does if expected.contains(&TokenType::Does) => {
+            expected.swap_remove(
+                expected
+                    .iter()
+                    .position(|&tt| tt == TokenType::Does)
+                    .unwrap(),
+            );
+        }
+
+        _ if !expected.is_empty() => {
+            return Err(RidottoError::expected_one_of(
+                expected,
+                scanner.peek_token(),
+            ))
+        }
+
+        _ if expected.is_empty() => return Err(RidottoError::expected_item(scanner.peek_token())),
+
+        _ => unreachable!(),
+    }
+
+    Ok(TypeInner::Regular { has, is, does })
 }
 
 fn parse_has<'src>(scanner: &mut Scanner<'src>) -> Result<Has<'src>, RidottoError> {
@@ -43,7 +95,7 @@ fn parse_has<'src>(scanner: &mut Scanner<'src>) -> Result<Has<'src>, RidottoErro
 }
 
 fn parse_annotated<'src>(scanner: &mut Scanner<'src>) -> Result<Annotated<'src>, RidottoError> {
-    let name = consume(scanner, TokenType::LowerIdent)?;
+    let name = consume_lower(scanner)?;
     consume(scanner, TokenType::Colon)?;
     Ok(Annotated {
         name,
@@ -120,6 +172,24 @@ fn consume_ident<'src>(scanner: &mut Scanner<'src>) -> Result<Token<'src>, Ridot
         Ok(name)
     } else {
         Err(RidottoError::expected_identifier(name))
+    }
+}
+
+fn consume_lower<'src>(scanner: &mut Scanner<'src>) -> Result<Token<'src>, RidottoError> {
+    let token = scanner.next_token();
+    if token.type_ == TokenType::LowerIdent {
+        Ok(token)
+    } else {
+        Err(RidottoError::expected_lower(token))
+    }
+}
+
+fn consume_upper<'src>(scanner: &mut Scanner<'src>) -> Result<Token<'src>, RidottoError> {
+    let token = scanner.next_token();
+    if token.type_ == TokenType::UpperIdent {
+        Ok(token)
+    } else {
+        Err(RidottoError::expected_upper(token))
     }
 }
 
