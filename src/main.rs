@@ -1,13 +1,8 @@
-use crate::{
-    compiler::{print_tokens, TokenType},
-    scanner::Scanner,
-};
+use crate::parse::{print_tokens, Scanner, TokenType};
 
 mod ast;
-mod compiler;
 mod error;
-mod parser;
-mod scanner;
+mod parse;
 mod typeck;
 
 const SOURCE: &str = r#"
@@ -57,8 +52,8 @@ type Option[t] is {
 }
 
 type Result[t, e] is {
-    ok(ok t)
-    error(error e)
+    ok(ok: t)
+    error(error: e)
 }
 
 type Point[Math[n]] has {
@@ -84,7 +79,10 @@ fn main() {
     //let src = SOURCE;
     let src = "type Point[Math[n]] has {
         x: n
-        Loooooonnnnng: n
+        loong: n=Int
+    } is {
+        metric
+        customary
     }";
 
     let mut scanner = Scanner::new(src);
@@ -94,7 +92,7 @@ fn main() {
     }
     print_tokens(&tokens);
 
-    match parser::parse(src) {
+    match parse::parse(src) {
         Ok(ast) => println!("{:#?}", ast),
         Err(err) => {
             println!("{:?}", err);
