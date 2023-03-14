@@ -44,8 +44,31 @@ impl RidottoError {
         let len = pos.byte()..(pos.byte() + got.as_bytes().len());
 
         Report::build(ReportKind::Error, (), pos.byte())
-            .with_label(Label::new(len).with_message("Expected something, got some other crap"))
+            .with_label(Label::new(len).with_message(self.message()))
             .finish()
+    }
+
+    pub fn message(&self) -> String {
+        match self {
+            Self::ExpectedIdentifier { got, .. } => {
+                format!("Expected an identifier, got {:?}", got)
+            }
+            Self::ExpectedUpperIdent { got, .. } => {
+                format!("Expected an uppercase identifier, got {:?}", got)
+            }
+            Self::ExpectedLowerIdent { got, .. } => {
+                format!("Expected a lowercase identifier, got {:?}", got)
+            }
+            Self::ExpectedToken { expected, got, .. } => {
+                format!("Expected {:?}, got {:?}", expected, got)
+            }
+            Self::ExpectedOneOf { expected, got, .. } => {
+                format!("Expected one of {:?}, got {:?}", expected, got)
+            }
+            Self::ExpectedItem { got, .. } => {
+                format!("Expected an item (function, type) got {:?}", got)
+            }
+        }
     }
 
     pub fn pos(&self) -> Pos {

@@ -661,10 +661,34 @@ fn parse_is<'src>(scanner: &mut Scanner<'src>) -> Result<Is<'src>, RidottoError>
 }
 
 fn parse_does<'src>(scanner: &mut Scanner<'src>) -> Result<Does<'src>, RidottoError> {
-    todo!()
+    consume(scanner, TokenType::Does)?;
+
+    consume(scanner, TokenType::LeftBrace)?;
+    let mut functions = Vec::new();
+    while scanner.peek_token().type_ != TokenType::RightBrace {
+        let head = parse_function_head(scanner)?;
+        let function = if scanner.peek_token().type_ == TokenType::LeftBrace {
+            let body = parse_function_body(scanner)?;
+            MaybeAbstractFunction::Function(Function { head, body })
+        } else {
+            MaybeAbstractFunction::AbstractFunction(head)
+        };
+        functions.push(function);
+    }
+    consume(scanner, TokenType::RightBrace)?;
+
+    Ok(Does { functions })
 }
 
 fn parse_function<'src>(scanner: &mut Scanner<'src>) -> Result<Function<'src>, RidottoError> {
+    let head = parse_function_head(scanner)?;
+    let body = parse_function_body(scanner)?;
+    Ok(Function { head, body })
+}
+
+fn parse_function_head<'src>(
+    scanner: &mut Scanner<'src>,
+) -> Result<FunctionHead<'src>, RidottoError> {
     let mut builtin = false;
     let mut async_ = false;
     let mut const_ = false;
@@ -684,6 +708,20 @@ fn parse_function<'src>(scanner: &mut Scanner<'src>) -> Result<Function<'src>, R
         scanner.next_token();
     }
 
+    let got = scanner.peek_token();
+    consume(scanner, TokenType::Fn).map_err(|_| {
+        RidottoError::expected_one_of(
+            [
+                TokenType::Builtin,
+                TokenType::Async,
+                TokenType::Const,
+                TokenType::Export,
+                TokenType::Fn,
+            ],
+            got,
+        )
+    })?;
+
     let name = consume_lower(scanner)?;
 
     let mut args = Vec::new();
@@ -699,16 +737,29 @@ fn parse_function<'src>(scanner: &mut Scanner<'src>) -> Result<Function<'src>, R
     }
     consume(scanner, TokenType::RightParen)?;
 
-    let body = Vec::new(); // TODO
-    Ok(Function {
+    let return_ = if scanner.peek_token().type_ == TokenType::Minus {
+        consume(scanner, TokenType::Minus)?;
+        consume(scanner, TokenType::RightAngle)?;
+        Some(parse_type_spec(scanner)?)
+    } else {
+        None
+    };
+
+    Ok(FunctionHead {
         builtin,
         async_,
         const_,
         export,
         name,
         args,
-        body,
+        return_,
     })
+}
+
+fn parse_function_body<'src>(scanner: &mut Scanner<'src>) -> Result<Vec<()>, RidottoError> {
+    consume(scanner, TokenType::LeftBrace)?;
+    consume(scanner, TokenType::RightBrace)?;
+    Ok(Vec::new())
 }
 
 fn parse_annotated<'src>(scanner: &mut Scanner<'src>) -> Result<Annotated<'src>, RidottoError> {

@@ -62,33 +62,29 @@ pub struct Variant<'src> {
 
 #[derive(Debug)]
 pub struct Does<'src> {
-    functions: Vec<MaybeAbstractFunction<'src>>,
+    pub functions: Vec<MaybeAbstractFunction<'src>>,
 }
 
 #[derive(Debug)]
 pub enum MaybeAbstractFunction<'src> {
-    AbstractFunction(AbstractFunction<'src>),
+    AbstractFunction(FunctionHead<'src>),
     Function(Function<'src>),
 }
 
 #[derive(Debug)]
-pub struct AbstractFunction<'src> {
+pub struct FunctionHead<'src> {
     pub builtin: bool,
     pub async_: bool,
     pub const_: bool,
     pub export: bool,
     pub name: Token<'src>,
     pub args: Vec<Annotated<'src>>,
+    pub return_: Option<TypeSpec<'src>>,
 }
 
 #[derive(Debug)]
 pub struct Function<'src> {
-    pub builtin: bool,
-    pub async_: bool,
-    pub const_: bool,
-    pub export: bool,
-    pub name: Token<'src>,
-    pub args: Vec<Annotated<'src>>,
+    pub head: FunctionHead<'src>,
     pub body: Vec<()>,
 }
 

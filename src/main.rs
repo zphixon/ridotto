@@ -83,6 +83,9 @@ fn main() {
     } is {
         metric
         customary
+    } does {
+        fn distance(a: Point, b: Point) -> Option[n] {
+        }
     }";
 
     let mut scanner = Scanner::new(src);
