@@ -33,36 +33,15 @@ pub struct Type<'src> {
 
 #[derive(Debug)]
 pub enum TypeInner<'src> {
-    Alias {
-        type_spec: TypeSpec<'src>,
-    },
-
-    Regular {
-        has: Option<Has<'src>>,
-        is: Option<Is<'src>>,
-        does: Option<Does<'src>>,
-    },
+    Alias { type_spec: TypeSpec<'src> },
+    Regular { regular: Regular<'src> },
 }
 
 #[derive(Debug)]
-pub struct Has<'src> {
-    pub annotated: Vec<Annotated<'src>>,
-}
-
-#[derive(Debug)]
-pub struct Is<'src> {
-    pub variants: Vec<Variant<'src>>,
-}
-
-#[derive(Debug)]
-pub struct Variant<'src> {
-    pub name: Token<'src>,
-    pub inner: Vec<Annotated<'src>>,
-}
-
-#[derive(Debug)]
-pub struct Does<'src> {
-    pub functions: Vec<MaybeAbstractFunction<'src>>,
+pub struct Regular<'src> {
+    pub fields: Vec<Annotated<'src>>,
+    pub variants: Vec<Type<'src>>,
+    pub behaviors: Vec<Function<'src>>,
 }
 
 #[derive(Debug)]
@@ -95,8 +74,21 @@ pub struct Annotated<'src> {
 }
 
 #[derive(Debug)]
+pub struct Class<'src> {
+    pub type_spec: TypeSpec<'src>,
+    pub behaviors: Vec<MaybeAbstractFunction<'src>>,
+}
+
+#[derive(Debug)]
+pub struct Impl<'src> {
+    lt: std::marker::PhantomData<&'src ()>,
+}
+
+#[derive(Debug)]
 pub enum Ast<'src> {
     Type(Type<'src>),
+    Class(Class<'src>),
+    Impl(Impl<'src>),
     Function(Function<'src>),
 }
 

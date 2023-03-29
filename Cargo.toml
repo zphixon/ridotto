@@ -8,4 +8,6 @@ version = '0.1.0'
 [dependencies]
 ariadne = '0.2'
 hex = '*'
+tracing = "0.1.37"
+tracing-subscriber = '0.3.16'
 unicode-segmentation = '1.10.1'

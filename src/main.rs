@@ -114,17 +114,25 @@ type Point[Math[n]] has {
 "#;
 
 fn main() {
+    tracing::subscriber::set_global_default(
+        tracing_subscriber::fmt()
+            .with_max_level(tracing::Level::TRACE)
+            .finish(),
+    )
+    .unwrap();
+
+    let src = X;
     //let src = SOURCE;
-    let src = "type Point[Math[n]] has {
-        x: n
-        loong: n=Int
-    } is {
-        metric
-        customary
-    } does {
-        fn distance(a: Point, b: Point) -> Option[n] {
-        }
-    }";
+    //let src = "type Point[Math[n]] has {
+    //    x: n
+    //    loong: n=Int
+    //} is {
+    //    metric
+    //    customary
+    //} does {
+    //    fn distance(a: Point, b: Point) -> Option[n] {
+    //    }
+    //}";
 
     let mut scanner = Scanner::new(src);
     let mut tokens = vec![];
@@ -158,10 +166,10 @@ type Bit {
 
 // elements of a set may have properties
 type Nibble {
-    bit1: Bit
-    bit2: Bit
-    bit3: Bit
-    bit4: Bit
+    bita: Bit
+    bitb: Bit
+    bitc: Bit
+    bitd: Bit
 }
 
 // elements of a set may themselves be sets
@@ -173,10 +181,10 @@ type Shape {
     }
 
     Quadrilateral {
-        side1: Int
-        side2: Int
-        side3: Int
-        side4: Int
+        sidea: Int
+        sideb: Int
+        sidec: Int
+        sided: Int
 
         Rectangle {
             Rectangle
@@ -197,12 +205,86 @@ type Applique {
     y: Int
 }
 
+type Point[Math[n]] {
+    x: n
+    y: n
+
+    Metric
+    Customary
+
+    fn distance(a: Point, b: Point) -> Option[n] {}
+}
+
+"#;
+
+const B: &str = r#"
+
 type Option[t] {
     Some { value: t }
     None
 
-    fn unwrap()
+    fn unwrap(self) -> t {
+        match self {
+            Option.Some { value } => value,
+            Option.None => panic("called unwrap on None value")
+        }
+    }
 }
 
+class Monad[a, b] {
+    fn wrap(a) -> Monad[a]
+    fn map(Monad[a], fn(a) -> Monad[b]) -> Monad[b]
+}
+
+impl Monad[a, b] for Option[a] {
+    fn wrap(value: a) -> Option[a] {
+        Option.Some { value }
+    }
+
+    fn map(self: Option[a], f: fn(a) -> Option[b]) -> Option[b] {
+        match self {
+            Option.Some { value } => f(value)
+            Option.None => Option.None
+        }
+    }
+}
+
+impl Monad[a, b] for Result[a, e] {
+    fn wrap(value: a) -> Result[a, e] {
+        Result.Ok { value }
+    }
+
+    fn map(self: Result[a, e], f: fn(a) -> Result[b, e]) -> Result[b, e] {
+        match self {
+            Result.Ok { value } => f(value)
+            Result.Err { err } => Result.Err { err }
+        }
+    }
+}
+
+class Iterator[t] {
+    fn next(self: Iterator[t]) -> Option[t]
+
+    fn map(self: Iterator[t], xform: fn(t) -> u) -> Map[t, u] {
+        Map {
+            iter: self
+            xform
+        }
+    }
+}
+
+type Map[t, u] {
+    iter: Iterator[t]
+    xform: fn(t) -> u
+}
+
+impl Iterator[u] for Map[t, u] {
+    fn next(self: Map[t, u]) -> Option[u] {
+        match self.iter.next() {
+            Some { some } => Some { (self.xform)(some) }
+            None => None
+        }
+    }
+}
 
 "#;
