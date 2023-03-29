@@ -99,3 +99,8 @@ pub enum Ast<'src> {
     Type(Type<'src>),
     Function(Function<'src>),
 }
+
+pub enum Point<N> {
+    Metric { x: N, y: N },
+    Customary { x: N, y: N },
+}

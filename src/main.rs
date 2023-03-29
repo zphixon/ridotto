@@ -56,6 +56,44 @@ type Result[t, e] is {
     error(error: e)
 }
 
+type Args {
+    dry_run: Bool
+
+    Build {
+        clean: Bool
+    }
+
+    Copy {
+        source: String
+        dest: String
+    }
+}
+
+args = parse_args()
+match args to Args.Build {
+    args.dry_run
+    args.clean
+}
+
+type Math[lhs, rhs=lhs, output=lhs] {
+    builtin fn add(lhs, rhs): output
+    builtin fn multiply(lhs, rhs): output
+}
+
+type Point[Math[n]] {
+    x: n
+    y: n
+}
+
+impl Math[Point[n]] {
+    fn add(lhs: Point[n], rhs: Point[n]): Point[n] {
+        Point {
+            x: lhs.x + rhs.x
+            y: lhs.y + rhs.y
+        }
+    }
+}
+
 type Point[Math[n]] has {
     x: n
     y: n
@@ -103,3 +141,68 @@ fn main() {
         }
     }
 }
+
+const X: &str = r#"
+
+// a value is an instance of an element of a set. that set is the type.
+// the type should describe valid elements of that set.
+
+// declare a set, named Unit, with a single element, named Unit
+type Unit
+
+// delcare a set named Bit, with some elements Zero and One
+type Bit {
+    Zero
+    One
+}
+
+// elements of a set may have properties
+type Nibble {
+    bit1: Bit
+    bit2: Bit
+    bit3: Bit
+    bit4: Bit
+}
+
+// elements of a set may themselves be sets
+type Shape {
+    Oval {
+        eccentricity: Int
+        Oval { minor_radius: Int }
+        Circle { radius: Int }
+    }
+
+    Quadrilateral {
+        side1: Int
+        side2: Int
+        side3: Int
+        side4: Int
+
+        Rectangle {
+            Rectangle
+            Square
+        }
+
+        Rhombus {
+            slant: Int
+            RectangleRhombus
+            SquareRhombus
+        }
+    }
+}
+
+type Applique {
+    shape: Shape
+    x: Int
+    y: Int
+}
+
+type Option[t] {
+    Some { value: t }
+    None
+
+    fn unwrap()
+}
+
+
+"#;
