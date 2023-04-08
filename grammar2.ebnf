@@ -1,39 +1,36 @@
 (* each rule may be separated by whitespace *)
 
-typeDecl = 'type', uppercaseIdent, [typeDeclArgs], typeDescription | typeAlias;
-typeDeclArgs = '[',
-    [ lowercaseIdent, { ',', lowercaseIdent } ],
-    { lowercaseIdent, typeAlias, { ',', lowercaseIdent, typeAlias } },
-']';
-typeAlias = '=', typeSpec;
+program = { item };
 
-typeSpec = uppercaseIdent, [typeSpecArgs];
-typeSpecArgs = '[',
-    lowercaseIdent, [typeAlias],
-    { ',', lowercaseIdent, [typeAlias] }, [',']
-']';
+item = type | class | function;
 
-typeDescription =
-    whereClause | doesClause | isClause | hasClause,
-    { whereClause | doesClause | isClause | hasClause };
+type = 'type', upperIdent, ['[', typeArgs, ']'], typeInner;
+typeArgs = typeExpr, {',', typeExpr};
 
-whereClause = 'where', '{', {lowercaseIdent, typeAlias}, '}';
-doesClause = 'does', '{', {functionHead | function}, '}';
-isClause = 'is', '{', {enumVariant}, '}';
-hasClause = 'has', '{', {varType}, '}';
+typeInner = [
+    ('=', typeExpr)
+    | ('{',
+        { typeAnnotated },
+        { typeVariant },
+        { function },
+    '}')
+];
 
-functionHead = functionModifiers, 'fn', lowercaseIdent, [typeDeclArgs], '(',
-    lowercaseIdent, ':', typeSpec,
-    { ',', lowercaseIdent, ':', typeSpec }, [','],
-')', ['->', typeSpec];
-function = functionHead, '{', { statement }, '}';
-functionModifiers = 'async' | 'builtin' | 'export' | 'const';
+typeVariant = upperIdent, typeInner;
 
-enumVariant = lowercaseIdent, ['{', {varType}, '}'];
+class = 'class', upperIdent, ['{', { maybeAbstractFunction }, '}'];
+maybeAbstractFunction = function | functionHead ;
 
-statement = 'stmt';
+functionHead =
+    {'export' | 'const' | 'async' | 'builtin'}, 'fn',
+    lowerIdent, [typeArgs], '(', [annotatedArgs], ')',
+    ['->', typeExpr];
 
-varType = lowercaseIdent, typeSpec;
+annotatedArgs = typeAnnotated, {',', typeAnnotated};
 
-lowercaseIdent = 'lower';
-uppercaseIdent = 'Upper';
+function = functionHead, '{', {stmt}, '}';
+
+typeAnnotated = lowerIdent, ':', typeExpr;
+
+typeExpr = typeName, ['[', typeArgs, ']'];
+typeName = (upperIdent, {'.', upperIdent}) | lowerIdent;

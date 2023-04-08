@@ -229,7 +229,7 @@ type Option[t] {
     }
 }
 
-class Monad[a, b] {
+class Monad[a, b=Int[pog]] {
     fn wrap(a: a) -> Monad[a]
     fn map(m: Monad[a], f: Fn[a, Monad[b]]) -> Monad[b]
 

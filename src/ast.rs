@@ -54,7 +54,7 @@ pub struct FunctionHead<'src> {
 
 pub struct Function<'src> {
     pub head: FunctionHead<'src>,
-    pub body: Vec<()>,
+    pub body: Vec<Stmt<'src>>,
 }
 
 pub struct Class<'src> {
@@ -75,6 +75,11 @@ pub struct Impl<'src> {
     lt: std::marker::PhantomData<&'src ()>,
 }
 
+#[derive(Debug)]
+pub enum Stmt<'src> {
+    V(std::marker::PhantomData<&'src ()>),
+}
+
 pub struct TypeAnnotated<'src> {
     pub name: NameLowercase<'src>,
     pub type_: TypeExpr<'src>,
@@ -82,12 +87,14 @@ pub struct TypeAnnotated<'src> {
 
 /// type expression
 pub enum TypeExpr<'src> {
-    /// Type, n, n=Type
-    Concrete {
+    /// Type
+    Concrete { name: TypeName<'src> },
+    /// n, n=Type
+    TypeVar {
         name: TypeName<'src>,
         default: Option<TypeExprNoDefault<'src>>,
     },
-    /// Type[...], n[...]
+    /// Type[...]
     /// maybe n[...]=?
     Instantiated {
         name: TypeName<'src>,
@@ -99,9 +106,11 @@ pub enum TypeExpr<'src> {
 ///
 /// inner part of a type variable which has already been defaulted
 pub enum TypeExprNoDefault<'src> {
-    /// Type, n
+    /// Type
     Concrete { name: TypeName<'src> },
-    /// Type[...], n[...]
+    /// n
+    TypeVar { name: TypeName<'src> },
+    /// Type[...], (n[...]?)
     Instantiated {
         name: TypeName<'src>,
         type_args: Vec<TypeExprNoDefault<'src>>,
@@ -110,8 +119,8 @@ pub enum TypeExprNoDefault<'src> {
 
 #[derive(Debug)]
 pub enum TypeName<'src> {
-    /// namespaced - always a flat list
-    Namespace(Vec<TypeName<'src>>),
+    /// namespaced
+    Namespace(Vec<NameUppercase<'src>>),
     /// uppercase type name
     TypeValue(NameUppercase<'src>),
     /// lowercase type var name
@@ -124,7 +133,7 @@ impl TypeName<'_> {
             TypeName::Namespace(names) => {
                 let mut s = String::new();
                 for (i, name) in names.iter().enumerate() {
-                    s += &name.name();
+                    s += name.uppercase.lexeme;
                     if i + 1 != names.len() {
                         s += ".";
                     }
@@ -187,8 +196,14 @@ impl Debug for TypeVariant<'_> {
 impl Debug for TypeExpr<'_> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
-            TypeExpr::Concrete { name, default } => {
+            TypeExpr::Concrete { name } => {
                 let mut dbg = f.debug_struct("Concrete");
+                dbg.field("name", &name.name());
+                dbg.finish()
+            }
+
+            TypeExpr::TypeVar { name, default } => {
+                let mut dbg = f.debug_struct("TypeVar");
                 dbg.field("name", &name.name());
                 if let Some(default) = default.as_ref() {
                     dbg.field("default", default);
@@ -210,6 +225,11 @@ impl Debug for TypeExprNoDefault<'_> {
         match self {
             TypeExprNoDefault::Concrete { name } => f
                 .debug_struct("Concrete")
+                .field("name", &name.name())
+                .finish(),
+
+            TypeExprNoDefault::TypeVar { name } => f
+                .debug_struct("TypeVar")
                 .field("name", &name.name())
                 .finish(),
 
@@ -266,6 +286,7 @@ impl Debug for Class<'_> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Class")
             .field("name", &self.name.uppercase.lexeme)
+            .field("type_args", &self.type_args)
             .field("behaviors", &self.behaviors)
             .finish()
     }
