@@ -567,7 +567,7 @@ fn identifier_grapheme(g: &str) -> bool {
     lower(g) || upper(g) || g == "_"
 }
 
-pub fn parse(source: &str) -> Result<Vec<Ast<'_>>, RidottoError> {
+pub fn parse(source: &str) -> Result<Vec<Item<'_>>, RidottoError> {
     tracing::trace!("parse");
     let mut scanner = Scanner::new(source);
     let mut ast = Vec::new();
@@ -575,11 +575,15 @@ pub fn parse(source: &str) -> Result<Vec<Ast<'_>>, RidottoError> {
     while scanner.peek_token().type_ != TokenType::Eof {
         match scanner.peek_token().type_ {
             TokenType::Type => {
-                ast.push(Ast::Type(parse_type_with_kw(&mut scanner)?));
+                ast.push(Item::ItemTypeDecl(parse_type_with_kw(&mut scanner)?));
             }
 
             type_ if type_.starts_function() => {
-                ast.push(Ast::Function(parse_function(&mut scanner)?));
+                ast.push(Item::ItemFunction(parse_function(&mut scanner)?));
+            }
+
+            TokenType::Class => {
+                //ast.push(Ast::Class(parse_class(&mut scanner)?));
             }
 
             _ => return Err(RidottoError::expected_item(scanner.peek_token())),
@@ -589,30 +593,45 @@ pub fn parse(source: &str) -> Result<Vec<Ast<'_>>, RidottoError> {
     Ok(ast)
 }
 
-fn parse_type_with_kw<'src>(scanner: &mut Scanner<'src>) -> Result<Type<'src>, RidottoError> {
+fn parse_type_with_kw<'src>(scanner: &mut Scanner<'src>) -> Result<TypeDecl<'src>, RidottoError> {
     tracing::trace!("parse_type_with_kw");
     consume(scanner, TokenType::Type)?;
     parse_type_without_kw(scanner)
 }
 
-fn parse_type_without_kw<'src>(scanner: &mut Scanner<'src>) -> Result<Type<'src>, RidottoError> {
+fn parse_type_without_kw<'src>(
+    scanner: &mut Scanner<'src>,
+) -> Result<TypeDecl<'src>, RidottoError> {
     tracing::trace!("parse_type_without_kw");
-    let type_spec = parse_type_spec(scanner)?;
+    let name = consume_upper(scanner)?;
+
+    let type_args = if scanner.peek_token().type_ == TokenType::LeftBracket {
+        parse_type_args(scanner)?
+    } else {
+        Vec::new()
+    };
 
     let inner = if scanner.peek_token().type_ == TokenType::Equal {
-        TypeInner::Alias {
-            type_spec: parse_type_spec(scanner)?,
+        consume(scanner, TokenType::Equal)?;
+        TypeDeclInnerOrAlias::TypeDeclAlias {
+            alias: parse_type_expr(scanner)?,
         }
     } else {
-        TypeInner::Regular {
-            regular: parse_regular_type(scanner)?,
+        TypeDeclInnerOrAlias::TypeDeclInner {
+            inner: parse_regular_type(scanner)?,
         }
     };
 
-    Ok(Type { type_spec, inner })
+    Ok(TypeDecl {
+        name,
+        type_args,
+        inner,
+    })
 }
 
-fn parse_regular_type<'src>(scanner: &mut Scanner<'src>) -> Result<Regular<'src>, RidottoError> {
+fn parse_regular_type<'src>(
+    scanner: &mut Scanner<'src>,
+) -> Result<TypeDeclInner<'src>, RidottoError> {
     tracing::trace!("parse_regular_type");
     let mut fields = Vec::new();
     let mut variants = Vec::new();
@@ -632,7 +651,7 @@ fn parse_regular_type<'src>(scanner: &mut Scanner<'src>) -> Result<Regular<'src>
         consume(scanner, TokenType::RightBrace)?;
     }
 
-    Ok(Regular {
+    Ok(TypeDeclInner {
         fields,
         variants,
         behaviors,
@@ -685,6 +704,10 @@ fn parse_function_head<'src>(
 
     let name = consume_lower(scanner)?;
 
+    let type_args = if scanner.peek_token().type_ == TokenType::LeftBracket {
+        parse_type_args(scanner)?
+    } else { Vec::new() };
+
     let mut args = Vec::new();
     consume(scanner, TokenType::LeftParen)?;
     while scanner.peek_token().type_ != TokenType::RightParen {
@@ -701,7 +724,7 @@ fn parse_function_head<'src>(
     let return_ = if scanner.peek_token().type_ == TokenType::Minus {
         consume(scanner, TokenType::Minus)?;
         consume(scanner, TokenType::RightAngle)?;
-        Some(parse_type_spec(scanner)?)
+        Some(parse_type_expr(scanner)?)
     } else {
         None
     };
@@ -712,6 +735,7 @@ fn parse_function_head<'src>(
         const_,
         export,
         name,
+        type_args,
         args,
         return_,
     })
@@ -719,83 +743,107 @@ fn parse_function_head<'src>(
 
 fn parse_function_body<'src>(scanner: &mut Scanner<'src>) -> Result<Vec<()>, RidottoError> {
     tracing::trace!("parse_function_body");
-    consume(scanner, TokenType::LeftBrace)?;
-    consume(scanner, TokenType::RightBrace)?;
+
+    let mut depth = 0;
+    while {
+        if scanner.peek_token().type_ == TokenType::LeftBrace {
+            depth += 1;
+        }
+        if scanner.peek_token().type_ == TokenType::RightBrace {
+            depth -= 1;
+        }
+
+        scanner.next_token();
+        depth != 0
+    } {
+        // :)
+    }
+
     Ok(Vec::new())
 }
 
-fn parse_annotated<'src>(scanner: &mut Scanner<'src>) -> Result<Annotated<'src>, RidottoError> {
+fn parse_annotated<'src>(scanner: &mut Scanner<'src>) -> Result<TypeAnnotated<'src>, RidottoError> {
     tracing::trace!("parse_annotated");
     let name = consume_lower(scanner)?;
     consume(scanner, TokenType::Colon)?;
-    Ok(Annotated {
+    Ok(TypeAnnotated {
         name,
-        type_spec: parse_type_spec(scanner)?,
+        type_: parse_type_expr(scanner)?,
     })
 }
 
-fn parse_type_spec<'src>(scanner: &mut Scanner<'src>) -> Result<TypeSpec<'src>, RidottoError> {
-    tracing::trace!("parse_type_spec");
-    let name = consume_ident(scanner)?;
-    match name.type_ {
-        TokenType::UpperIdent => {
-            let mut inner = Vec::new();
-            if scanner.peek_token().type_ == TokenType::LeftBracket {
-                consume(scanner, TokenType::LeftBracket)?;
-                inner.push(parse_type_spec(scanner)?);
+fn parse_type_expr<'src>(scanner: &mut Scanner<'src>) -> Result<TypeExpr<'src>, RidottoError> {
+    tracing::trace!("parse_type_expr");
+    let name = parse_type_name(scanner)?;
 
-                while scanner.peek_token().type_ == TokenType::Comma {
-                    consume(scanner, TokenType::Comma)?;
-                    inner.push(parse_type_spec(scanner)?);
-                }
-
-                consume(scanner, TokenType::RightBracket)?;
-            }
-
-            Ok(TypeSpec::Type { name, inner })
-        }
-
-        TokenType::LowerIdent => {
-            let default = if scanner.peek_token().type_ == TokenType::Equal {
-                consume(scanner, TokenType::Equal)?;
-                Some(parse_inner_type_spec(scanner)?)
-            } else {
-                None
-            };
-
-            Ok(TypeSpec::TypeVar { name, default })
-        }
-
-        _ => unreachable!(),
+    if scanner.peek_token().type_ == TokenType::LeftBracket {
+        Ok(TypeExpr::Instantiated {
+            name,
+            type_args: parse_type_args(scanner)?,
+        })
+    } else if scanner.peek_token().type_ == TokenType::Equal {
+        Ok(TypeExpr::Concrete {
+            name,
+            default: Some(parse_type_expr_no_default(scanner)?),
+        })
+    } else {
+        Ok(TypeExpr::Concrete {
+            name,
+            default: None,
+        })
     }
 }
 
-fn parse_inner_type_spec<'src>(
-    scanner: &mut Scanner<'src>,
-) -> Result<InnerTypeSpec<'src>, RidottoError> {
-    tracing::trace!("parse_inner_type_spec");
-    let name = consume_ident(scanner)?;
-    match name.type_ {
-        TokenType::UpperIdent => {
-            let mut inner = vec![];
-            if scanner.peek_token().type_ == TokenType::LeftBracket {
-                consume(scanner, TokenType::LeftBracket)?;
-                inner.push(parse_inner_type_spec(scanner)?);
-
-                while scanner.peek_token().type_ == TokenType::Comma {
-                    consume(scanner, TokenType::Comma)?;
-                    inner.push(parse_inner_type_spec(scanner)?);
-                }
-
-                consume(scanner, TokenType::RightBracket)?;
-            }
-
-            Ok(InnerTypeSpec::Type { name, inner })
+fn parse_type_args<'src>(scanner: &mut Scanner<'src>) -> Result<Vec<TypeExpr<'src>>, RidottoError> {
+    let mut type_args = Vec::new();
+    consume(scanner, TokenType::LeftBracket)?;
+    while scanner.peek_token().type_ != TokenType::RightBracket {
+        type_args.push(parse_type_expr(scanner)?);
+        if scanner.peek_token().type_ != TokenType::RightBracket {
+            consume(scanner, TokenType::Comma)?;
         }
+    }
+    if !type_args.is_empty() && scanner.peek_token().type_ == TokenType::Comma {
+        scanner.next_token();
+    }
+    consume(scanner, TokenType::RightBracket)?;
+    Ok(type_args)
+}
 
-        TokenType::LowerIdent => Ok(InnerTypeSpec::TypeVar { name }),
+fn parse_type_expr_no_default<'src>(
+    scanner: &mut Scanner<'src>,
+) -> Result<TypeExprNoDefault<'src>, RidottoError> {
+    tracing::trace!("parse_type_expr_no_default");
+    let name = parse_type_name(scanner)?;
 
-        _ => unreachable!(),
+    if scanner.peek_token().type_ == TokenType::LeftBracket {
+        let mut type_args = Vec::new();
+        consume(scanner, TokenType::LeftBracket)?;
+        while scanner.peek_token().type_ != TokenType::RightBracket {
+            type_args.push(parse_type_expr_no_default(scanner)?);
+            if scanner.peek_token().type_ != TokenType::RightBracket {
+                consume(scanner, TokenType::Comma)?;
+            }
+        }
+        if !type_args.is_empty() && scanner.peek_token().type_ == TokenType::Comma {
+            scanner.next_token();
+        }
+        consume(scanner, TokenType::RightBracket)?;
+
+        Ok(TypeExprNoDefault::Instantiated { name, type_args })
+    } else {
+        Ok(TypeExprNoDefault::Concrete { name })
+    }
+}
+
+fn parse_type_name<'src>(scanner: &mut Scanner<'src>) -> Result<TypeName<'src>, RidottoError> {
+    let name = consume_ident(scanner)?;
+    if name.type_ == TokenType::UpperIdent {
+        Ok(TypeName::TypeValue(NameUppercase { uppercase: name }))
+    } else if name.type_ == TokenType::LowerIdent {
+        Ok(TypeName::TypeVar(NameLowercase { lowercase: name }))
+    } else {
+        Err(RidottoError::expected_identifier(name))
     }
 }
 
@@ -809,21 +857,21 @@ fn consume_ident<'src>(scanner: &mut Scanner<'src>) -> Result<Token<'src>, Ridot
     }
 }
 
-fn consume_lower<'src>(scanner: &mut Scanner<'src>) -> Result<Token<'src>, RidottoError> {
+fn consume_lower<'src>(scanner: &mut Scanner<'src>) -> Result<NameLowercase<'src>, RidottoError> {
     tracing::trace!("consume_lower");
     let token = scanner.next_token();
     if token.type_ == TokenType::LowerIdent {
-        Ok(token)
+        Ok(NameLowercase { lowercase: token })
     } else {
         Err(RidottoError::expected_lower(token))
     }
 }
 
-fn consume_upper<'src>(scanner: &mut Scanner<'src>) -> Result<Token<'src>, RidottoError> {
+fn consume_upper<'src>(scanner: &mut Scanner<'src>) -> Result<NameUppercase<'src>, RidottoError> {
     tracing::trace!("consume_upper");
     let token = scanner.next_token();
     if token.type_ == TokenType::UpperIdent {
-        Ok(token)
+        Ok(NameUppercase { uppercase: token })
     } else {
         Err(RidottoError::expected_upper(token))
     }

@@ -2,6 +2,8 @@ use crate::parse::{print_tokens, Scanner, TokenType};
 
 mod ast;
 mod error;
+mod ns;
+mod ns2;
 mod parse;
 mod typeck;
 
@@ -122,6 +124,7 @@ fn main() {
     .unwrap();
 
     let src = X;
+    //let src = X;
     //let src = SOURCE;
     //let src = "type Point[Math[n]] has {
     //    x: n
@@ -201,8 +204,7 @@ type Shape {
 
 type Applique {
     shape: Shape
-    x: Int
-    y: Int
+    point: Point[Int]
 }
 
 type Point[Math[n]] {
@@ -215,6 +217,15 @@ type Point[Math[n]] {
     fn distance(a: Point, b: Point) -> Option[n] {}
 }
 
+"#;
+
+const WOW: &str = r#"
+type A
+type B = A
+type C {}
+type D {
+    E
+}
 "#;
 
 const B: &str = r#"
