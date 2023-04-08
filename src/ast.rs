@@ -31,9 +31,14 @@ pub struct TypeDeclInner<'src> {
     /// properties of a type
     pub fields: Vec<TypeAnnotated<'src>>,
     /// subtypes
-    pub variants: Vec<TypeDecl<'src>>,
+    pub variants: Vec<TypeVariant<'src>>,
     /// cocnrete behaviors of the type
     pub behaviors: Vec<Function<'src>>,
+}
+
+pub struct TypeVariant<'src> {
+    pub name: NameUppercase<'src>,
+    pub inner: TypeDeclInnerOrAlias<'src>,
 }
 
 pub struct FunctionHead<'src> {
@@ -52,9 +57,9 @@ pub struct Function<'src> {
     pub body: Vec<()>,
 }
 
-#[derive(Debug)]
 pub struct Class<'src> {
-    pub type_args: TypeExpr<'src>,
+    pub name: NameUppercase<'src>,
+    pub type_args: Vec<TypeExpr<'src>>,
     pub behaviors: Vec<MaybeAbstractFunction<'src>>,
 }
 
@@ -105,6 +110,8 @@ pub enum TypeExprNoDefault<'src> {
 
 #[derive(Debug)]
 pub enum TypeName<'src> {
+    /// namespaced - always a flat list
+    Namespace(Vec<TypeName<'src>>),
     /// uppercase type name
     TypeValue(NameUppercase<'src>),
     /// lowercase type var name
@@ -112,10 +119,20 @@ pub enum TypeName<'src> {
 }
 
 impl TypeName<'_> {
-    fn name(&self) -> &str {
+    fn name(&self) -> String {
         match self {
-            TypeName::TypeValue(upper) => upper.uppercase.lexeme,
-            TypeName::TypeVar(lower) => lower.lowercase.lexeme,
+            TypeName::Namespace(names) => {
+                let mut s = String::new();
+                for (i, name) in names.iter().enumerate() {
+                    s += &name.name();
+                    if i + 1 != names.len() {
+                        s += ".";
+                    }
+                }
+                s
+            }
+            TypeName::TypeValue(upper) => upper.uppercase.lexeme.into(),
+            TypeName::TypeVar(lower) => lower.lowercase.lexeme.into(),
         }
     }
 }
@@ -135,6 +152,24 @@ impl Debug for TypeDecl<'_> {
         let mut dbg = f.debug_struct("TypeDecl");
         dbg.field("name", &self.name.uppercase.lexeme);
         dbg.field("type_args", &self.type_args);
+        match &self.inner {
+            TypeDeclInnerOrAlias::TypeDeclAlias { alias } => {
+                dbg.field("alias", alias);
+            }
+            TypeDeclInnerOrAlias::TypeDeclInner { inner } => {
+                dbg.field("fields", &inner.fields);
+                dbg.field("variants", &inner.variants);
+                dbg.field("behaviors", &inner.behaviors);
+            }
+        }
+        dbg.finish()
+    }
+}
+
+impl Debug for TypeVariant<'_> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        let mut dbg = f.debug_struct("TypeVariant");
+        dbg.field("name", &self.name.uppercase.lexeme);
         match &self.inner {
             TypeDeclInnerOrAlias::TypeDeclAlias { alias } => {
                 dbg.field("alias", alias);
@@ -203,7 +238,7 @@ impl Debug for Function<'_> {
             .field("async_", &self.head.async_)
             .field("const_", &self.head.const_)
             .field("export", &self.head.export)
-            .field("name", &self.head.name)
+            .field("name", &self.head.name.lowercase.lexeme)
             .field("type_args", &self.head.type_args)
             .field("args", &self.head.args)
             .field("return_", &self.head.return_)
@@ -219,10 +254,19 @@ impl Debug for FunctionHead<'_> {
             .field("async_", &self.async_)
             .field("const_", &self.const_)
             .field("export", &self.export)
-            .field("name", &self.name)
+            .field("name", &self.name.lowercase.lexeme)
             .field("type_args", &self.type_args)
             .field("args", &self.args)
             .field("return_", &self.return_)
+            .finish()
+    }
+}
+
+impl Debug for Class<'_> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Class")
+            .field("name", &self.name.uppercase.lexeme)
+            .field("behaviors", &self.behaviors)
             .finish()
     }
 }

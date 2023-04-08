@@ -217,6 +217,27 @@ type Point[Math[n]] {
     fn distance(a: Point, b: Point) -> Option[n] {}
 }
 
+type Option[t] {
+    Some { value: t }
+    None
+
+    fn unwrap(self: Self) -> t {
+        match self {
+            Option.Some { value } => value,
+            Option.None => panic("called unwrap on None value")
+        }
+    }
+}
+
+class Monad[a, b] {
+    fn wrap(a: a) -> Monad[a]
+    fn map(m: Monad[a], f: Fn[a, Monad[b]]) -> Monad[b]
+
+    fn wowee() -> Wow.Wee[A.B.C] {
+        wowee
+    }
+}
+
 "#;
 
 const WOW: &str = r#"
