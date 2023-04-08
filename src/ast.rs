@@ -1,4 +1,5 @@
 use crate::parse::Token;
+use std::fmt::{Debug, Formatter};
 
 /// top level item
 #[derive(Debug)]
@@ -10,7 +11,6 @@ pub enum Item<'src> {
 }
 
 /// type declaration
-#[derive(Debug)]
 pub struct TypeDecl<'src> {
     /// name of the type
     pub name: NameUppercase<'src>,
@@ -20,7 +20,6 @@ pub struct TypeDecl<'src> {
     pub inner: TypeDeclInnerOrAlias<'src>,
 }
 
-#[derive(Debug)]
 pub enum TypeDeclInnerOrAlias<'src> {
     /// type X = Y
     TypeDeclAlias { alias: TypeExpr<'src> },
@@ -28,7 +27,6 @@ pub enum TypeDeclInnerOrAlias<'src> {
     TypeDeclInner { inner: TypeDeclInner<'src> },
 }
 
-#[derive(Debug)]
 pub struct TypeDeclInner<'src> {
     /// properties of a type
     pub fields: Vec<TypeAnnotated<'src>>,
@@ -38,7 +36,6 @@ pub struct TypeDeclInner<'src> {
     pub behaviors: Vec<Function<'src>>,
 }
 
-#[derive(Debug)]
 pub struct FunctionHead<'src> {
     pub builtin: bool,
     pub async_: bool,
@@ -50,7 +47,6 @@ pub struct FunctionHead<'src> {
     pub return_: Option<TypeExpr<'src>>,
 }
 
-#[derive(Debug)]
 pub struct Function<'src> {
     pub head: FunctionHead<'src>,
     pub body: Vec<()>,
@@ -74,14 +70,12 @@ pub struct Impl<'src> {
     lt: std::marker::PhantomData<&'src ()>,
 }
 
-#[derive(Debug)]
 pub struct TypeAnnotated<'src> {
     pub name: NameLowercase<'src>,
     pub type_: TypeExpr<'src>,
 }
 
 /// type expression
-#[derive(Debug)]
 pub enum TypeExpr<'src> {
     /// Type, n, n=Type
     Concrete {
@@ -99,7 +93,6 @@ pub enum TypeExpr<'src> {
 /// type expression without defaults allowed
 ///
 /// inner part of a type variable which has already been defaulted
-#[derive(Debug)]
 pub enum TypeExprNoDefault<'src> {
     /// Type, n
     Concrete { name: TypeName<'src> },
@@ -118,6 +111,15 @@ pub enum TypeName<'src> {
     TypeVar(NameLowercase<'src>),
 }
 
+impl TypeName<'_> {
+    fn name(&self) -> &str {
+        match self {
+            TypeName::TypeValue(upper) => upper.uppercase.lexeme,
+            TypeName::TypeVar(lower) => lower.lowercase.lexeme,
+        }
+    }
+}
+
 #[derive(Debug)]
 pub struct NameUppercase<'src> {
     pub uppercase: Token<'src>,
@@ -126,4 +128,101 @@ pub struct NameUppercase<'src> {
 #[derive(Debug)]
 pub struct NameLowercase<'src> {
     pub lowercase: Token<'src>,
+}
+
+impl Debug for TypeDecl<'_> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        let mut dbg = f.debug_struct("TypeDecl");
+        dbg.field("name", &self.name.uppercase.lexeme);
+        dbg.field("type_args", &self.type_args);
+        match &self.inner {
+            TypeDeclInnerOrAlias::TypeDeclAlias { alias } => {
+                dbg.field("alias", alias);
+            }
+            TypeDeclInnerOrAlias::TypeDeclInner { inner } => {
+                dbg.field("fields", &inner.fields);
+                dbg.field("variants", &inner.variants);
+                dbg.field("behaviors", &inner.behaviors);
+            }
+        }
+        dbg.finish()
+    }
+}
+
+impl Debug for TypeExpr<'_> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            TypeExpr::Concrete { name, default } => {
+                let mut dbg = f.debug_struct("Concrete");
+                dbg.field("name", &name.name());
+                if let Some(default) = default.as_ref() {
+                    dbg.field("default", default);
+                }
+                dbg.finish()
+            }
+
+            TypeExpr::Instantiated { name, type_args } => f
+                .debug_struct("Instantiated")
+                .field("name", &name.name())
+                .field("type_args", type_args)
+                .finish(),
+        }
+    }
+}
+
+impl Debug for TypeExprNoDefault<'_> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            TypeExprNoDefault::Concrete { name } => f
+                .debug_struct("Concrete")
+                .field("name", &name.name())
+                .finish(),
+
+            TypeExprNoDefault::Instantiated { name, type_args } => f
+                .debug_struct("Instantiated")
+                .field("name", &name.name())
+                .field("type_args", type_args)
+                .finish(),
+        }
+    }
+}
+
+impl Debug for TypeAnnotated<'_> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("TypeAnnotated")
+            .field("name", &self.name.lowercase.lexeme)
+            .field("type_", &self.type_)
+            .finish()
+    }
+}
+
+impl Debug for Function<'_> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Function")
+            .field("builtin", &self.head.builtin)
+            .field("async_", &self.head.async_)
+            .field("const_", &self.head.const_)
+            .field("export", &self.head.export)
+            .field("name", &self.head.name)
+            .field("type_args", &self.head.type_args)
+            .field("args", &self.head.args)
+            .field("return_", &self.head.return_)
+            .field("body", &self.body)
+            .finish()
+    }
+}
+
+impl Debug for FunctionHead<'_> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("FunctionHead")
+            .field("builtin", &self.builtin)
+            .field("async_", &self.async_)
+            .field("const_", &self.const_)
+            .field("export", &self.export)
+            .field("name", &self.name)
+            .field("type_args", &self.type_args)
+            .field("args", &self.args)
+            .field("return_", &self.return_)
+            .finish()
+    }
 }
