@@ -33,6 +33,10 @@ pub enum RidottoError {
         got: String,
         pos: Pos,
     },
+
+    RecursionLimitReached {
+        pos: Pos,
+    },
 }
 
 impl RidottoError {
@@ -68,6 +72,9 @@ impl RidottoError {
             Self::ExpectedItem { got, .. } => {
                 format!("Expected an item (function, type) got {:?}", got)
             }
+            Self::RecursionLimitReached { .. } => {
+                format!("Recursion limit reached")
+            }
         }
     }
 
@@ -79,6 +86,7 @@ impl RidottoError {
             Self::ExpectedToken { pos, .. } => *pos,
             Self::ExpectedOneOf { pos, .. } => *pos,
             Self::ExpectedItem { pos, .. } => *pos,
+            Self::RecursionLimitReached { pos, .. } => *pos,
         }
     }
 
@@ -90,6 +98,7 @@ impl RidottoError {
             Self::ExpectedToken { got, .. } => got,
             Self::ExpectedOneOf { got, .. } => got,
             Self::ExpectedItem { got, .. } => got,
+            Self::RecursionLimitReached { .. } => "",
         }
     }
 
