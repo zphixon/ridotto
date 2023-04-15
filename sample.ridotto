@@ -82,7 +82,7 @@ impl Monad[a, b] for Option[a] {
         Option.Some { value }
     }
 
-    fn map(self: Option[a], f: fn(a) -> Option[b]) -> Option[b] {
+    async fn map(self: Option[a], f: fn(a) -> Option[b]) -> Option[b] {
         match self {
             Option.Some { value } => f(value)
             Option.None => Option.None

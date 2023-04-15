@@ -29,6 +29,11 @@ pub enum RidottoError {
         pos: Pos,
     },
 
+    AlreadySeenFunctionMod {
+        got: String,
+        pos: Pos,
+    },
+
     ExpectedItem {
         got: String,
         pos: Pos,
@@ -69,6 +74,9 @@ impl RidottoError {
             Self::ExpectedOneOf { expected, got, .. } => {
                 format!("Expected one of {:?}, got {:?}", expected, got)
             }
+            Self::AlreadySeenFunctionMod { got, .. } => {
+                format!("The function modifier {:?} has already been used", got)
+            }
             Self::ExpectedItem { got, .. } => {
                 format!("Expected an item (function, type) got {:?}", got)
             }
@@ -85,6 +93,7 @@ impl RidottoError {
             Self::ExpectedLowerIdent { pos, .. } => *pos,
             Self::ExpectedToken { pos, .. } => *pos,
             Self::ExpectedOneOf { pos, .. } => *pos,
+            Self::AlreadySeenFunctionMod { pos, .. } => *pos,
             Self::ExpectedItem { pos, .. } => *pos,
             Self::RecursionLimitReached { pos, .. } => *pos,
         }
@@ -97,6 +106,7 @@ impl RidottoError {
             Self::ExpectedLowerIdent { got, .. } => got,
             Self::ExpectedToken { got, .. } => got,
             Self::ExpectedOneOf { got, .. } => got,
+            Self::AlreadySeenFunctionMod { got, .. } => got,
             Self::ExpectedItem { got, .. } => got,
             Self::RecursionLimitReached { .. } => "",
         }
@@ -134,6 +144,13 @@ impl RidottoError {
     pub fn expected_one_of(expected: impl Expected, got: Token) -> Self {
         Self::ExpectedOneOf {
             expected: expected.expected(),
+            got: got.lexeme.into(),
+            pos: got.pos,
+        }
+    }
+
+    pub fn already_seen_function_mod(got: Token) -> Self {
+        Self::AlreadySeenFunctionMod {
             got: got.lexeme.into(),
             pos: got.pos,
         }

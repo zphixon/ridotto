@@ -768,11 +768,17 @@ fn parse_function_head<'src>(
     while scanner.peek_token().type_.starts_function()
         && scanner.peek_token().type_ != TokenType::Fn
     {
-        match scanner.peek_token().type_ {
-            TokenType::Builtin => builtin = true,
-            TokenType::Async => async_ = true,
-            TokenType::Const => const_ = true,
-            TokenType::Export => export = true,
+        let peeked = scanner.peek_token();
+        match peeked.type_ {
+            TokenType::Builtin if !builtin => builtin = true,
+            TokenType::Async if !async_ => async_ = true,
+            TokenType::Const if !const_ => const_ = true,
+            TokenType::Export if !export => export = true,
+
+            TokenType::Builtin | TokenType::Async | TokenType::Const | TokenType::Export => {
+                return Err(RidottoError::already_seen_function_mod(peeked));
+            }
+
             _ => {}
         }
 
