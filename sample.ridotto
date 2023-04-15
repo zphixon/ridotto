@@ -82,7 +82,7 @@ impl Monad[a, b] for Option[a] {
         Option.Some { value }
     }
 
-    async fn map(self: Option[a], f: fn(a) -> Option[b]) -> Option[b] {
+    fn map(self: Option[a], f: fn(a) -> Option[b]) -> Option[b] {
         match self {
             Option.Some { value } => f(value)
             Option.None => Option.None
@@ -90,40 +90,40 @@ impl Monad[a, b] for Option[a] {
     }
 }
 
-//impl Monad[a, b] for Result[a, e] {
-//    fn wrap(value: a) -> Result[a, e] {
-//        Result.Ok { value }
-//    }
-//
-//    fn map(self: Result[a, e], f: fn(a) -> Result[b, e]) -> Result[b, e] {
-//        match self {
-//            Result.Ok { value } => f(value)
-//            Result.Err { err } => Result.Err { err }
-//        }
-//    }
-//}
-//
-//class Iterator[t] {
-//    fn next(self: Iterator[t]) -> Option[t]
-//
-//    fn map(self: Iterator[t], xform: fn(t) -> u) -> Map[t, u] {
-//        Map {
-//            iter: self
-//            xform
-//        }
-//    }
-//}
-//
-//type Map[t, u] {
-//    iter: Iterator[t]
-//    xform: fn(t) -> u
-//}
-//
-//impl Iterator[u] for Map[t, u] {
-//    fn next(self: Map[t, u]) -> Option[u] {
-//        match self.iter.next() {
-//            Some { some } => Some { (self.xform)(some) }
-//            None => None
-//        }
-//    }
-//}
+impl Monad[a, b] for Result[a, e] {
+    fn wrap(value: a) -> Result[a, e] {
+        Result.Ok { value }
+    }
+
+    fn map(self: Result[a, e], f: fn(a) -> Result[b, e]) -> Result[b, e] {
+        match self {
+            Result.Ok { value } => f(value)
+            Result.Err { err } => Result.Err { err }
+        }
+    }
+}
+
+class Iterator[t] {
+    fn next(self: Iterator[t]) -> Option[t]
+
+    fn map(self: Iterator[t], xform: fn(t) -> u) -> Map[t, u] {
+        Map {
+            iter: self
+            xform
+        }
+    }
+}
+
+type Map[t, u] {
+    iter: Iterator[t]
+    xform: fn(t) -> u
+}
+
+impl Iterator[u] for Map[t, u] {
+    fn next(self: Map[t, u]) -> Option[u] {
+        match self.iter.next() {
+            Some { some } => Some { (self.xform)(some) }
+            None => None
+        }
+    }
+}
