@@ -1,6 +1,6 @@
 use proc_macro::TokenStream;
 use quote::ToTokens;
-use syn::{token::Mut, FnArg, ItemFn, Pat, PatIdent, PatType, Type, TypePath, TypeReference};
+use syn::{FnArg, ItemFn, Pat, PatIdent, Type, TypePath, TypeReference};
 
 #[proc_macro_attribute]
 pub fn parser_traced(_: TokenStream, item: TokenStream) -> TokenStream {

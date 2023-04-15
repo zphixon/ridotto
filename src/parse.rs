@@ -111,10 +111,13 @@ pub enum TokenType {
     /// Type name, e.g. `Hello`
     UpperIdent,
 
+    #[allow(dead_code)]
     String,
     True,
     False,
+    #[allow(dead_code)]
     Float(f64),
+    #[allow(dead_code)]
     Int(i64),
 
     Eof,
@@ -181,16 +184,6 @@ pub struct Token<'a> {
     pub type_: TokenType,
     pub lexeme: &'a str,
     pub pos: Pos,
-}
-
-impl Token<'_> {
-    pub fn eof() -> Self {
-        Token {
-            type_: TokenType::Eof,
-            lexeme: "",
-            pos: Pos::Builtin,
-        }
-    }
 }
 
 impl Default for Token<'_> {

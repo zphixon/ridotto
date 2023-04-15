@@ -6,6 +6,7 @@ use std::fmt::{Debug, Formatter};
 pub enum Item<'src> {
     ItemTypeDecl(TypeDecl<'src>),
     ItemClass(Class<'src>),
+    #[allow(dead_code)]
     ItemImpl(Impl<'src>),
     ItemFunction(Function<'src>),
 }
@@ -77,6 +78,7 @@ pub struct Impl<'src> {
 
 #[derive(Debug)]
 pub enum Stmt<'src> {
+    #[allow(dead_code)]
     V(std::marker::PhantomData<&'src ()>),
 }
 
