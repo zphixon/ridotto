@@ -109,6 +109,8 @@ pub enum TypeExpr<'src> {
         args: Vec<TypeExpr<'src>>,
         return_: Option<Box<TypeExpr<'src>>>,
     },
+    /// (..., ..., ...)
+    Tuple { inner: Vec<TypeExpr<'src>> },
 }
 
 /// type expression without defaults allowed
@@ -236,6 +238,14 @@ impl Debug for TypeExpr<'_> {
                 dbg.field("args", args);
                 if let Some(return_) = return_.as_ref() {
                     dbg.field("return_", return_);
+                }
+                dbg.finish()
+            }
+
+            TypeExpr::Tuple { inner } => {
+                let mut dbg = f.debug_tuple("Tuple");
+                for field in inner.iter() {
+                    dbg.field(field);
                 }
                 dbg.finish()
             }

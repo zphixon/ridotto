@@ -883,6 +883,8 @@ fn parse_type_expr<'src>(
 ) -> Result<TypeExpr<'src>, RidottoError> {
     if scanner.peek_token().type_ == TokenType::Fn {
         parse_fn_type_expr(scanner, depth)
+    } else if scanner.peek_token().type_ == TokenType::LeftParen {
+        parse_tuple_type_expr(scanner, depth)
     } else {
         parse_regular_type_expr(scanner, depth)
     }
@@ -921,6 +923,26 @@ fn parse_regular_type_expr<'src>(
 }
 
 #[ridotto_macros::parser_traced]
+fn parse_tuple_type_expr<'src>(
+    scanner: &mut Scanner<'src>,
+    depth: usize,
+) -> Result<TypeExpr<'src>, RidottoError> {
+    let mut inner = Vec::new();
+    consume(scanner, TokenType::LeftParen, depth)?;
+    while scanner.peek_token().type_ != TokenType::RightParen {
+        inner.push(parse_type_expr(scanner, depth)?);
+        if scanner.peek_token().type_ != TokenType::RightParen {
+            consume(scanner, TokenType::Comma, depth)?;
+        }
+    }
+    if !inner.is_empty() && scanner.peek_token().type_ == TokenType::Comma {
+        scanner.next_token();
+    }
+    consume(scanner, TokenType::RightParen, depth)?;
+    Ok(TypeExpr::Tuple { inner })
+}
+
+#[ridotto_macros::parser_traced]
 fn parse_fn_type_expr<'src>(
     scanner: &mut Scanner<'src>,
     depth: usize,
@@ -933,18 +955,11 @@ fn parse_fn_type_expr<'src>(
         Vec::new()
     };
 
-    let mut args = Vec::new();
-    consume(scanner, TokenType::LeftParen, depth)?;
-    while scanner.peek_token().type_ != TokenType::RightParen {
-        args.push(parse_type_expr(scanner, depth)?);
-        if scanner.peek_token().type_ != TokenType::RightParen {
-            consume(scanner, TokenType::Comma, depth)?;
-        }
-    }
-    if !type_args.is_empty() && scanner.peek_token().type_ == TokenType::Comma {
-        scanner.next_token();
-    }
-    consume(scanner, TokenType::RightParen, depth)?;
+    let TypeExpr::Tuple {
+        inner: args
+    } = parse_tuple_type_expr(scanner, depth)? else {
+        unreachable!();
+    };
 
     let return_ = if scanner.peek_token().type_ == TokenType::Minus {
         consume(scanner, TokenType::Minus, depth)?;

@@ -57,7 +57,13 @@ type Point[Math[n]] {
     Metric
     Customary
 
-    fn distance(a: Point, b: Point) -> Option[n] {}
+    fn distance(a: Point, b: Point) -> Option[n] {
+        match (a, b) {
+            (Metric, Metric) | (Customary, Customary) =>
+                Option.Some { value: Math.sqrt(Math.powi(b.x - a.x, 2) + Math.powi(b.y - a.y, 2)) }
+            _ => Option.None
+        }
+    }
 }
 
 type Option[t] {
@@ -126,4 +132,8 @@ impl Iterator[u] for Map[t, u] {
             None => None
         }
     }
+}
+
+fn lol(a: (A, B, C)) -> (C, B, A) {
+    (a.3, a.2, a.1)
 }
