@@ -78,9 +78,43 @@ pub struct Impl<'src> {
 }
 
 #[derive(Debug)]
+#[allow(dead_code)]
 pub enum Stmt<'src> {
-    #[allow(dead_code)]
-    V(std::marker::PhantomData<&'src ()>),
+    If {},
+    For {},
+    Match {},
+    Expr(Expr<'src>),
+}
+
+#[derive(Debug)]
+#[allow(dead_code)]
+pub enum Expr<'src> {
+    Literal {
+        literal: Token<'src>,
+    },
+    Paren {
+        expr: Box<Expr<'src>>,
+    },
+    GetFrom {
+        namespace: TypeName<'src>,
+        behavior: Option<NameLowercase<'src>>,
+    },
+    Call {
+        callee: Box<Expr<'src>>,
+        args: Box<Expr<'src>>,
+    },
+    Unary {
+        op: Token<'src>,
+        rhs: Box<Expr<'src>>,
+    },
+    Binary {
+        lhs: Box<Expr<'src>>,
+        op: Token<'src>,
+        rhs: Box<Expr<'src>>,
+    },
+    Variable {
+        variable: NameLowercase<'src>,
+    },
 }
 
 pub struct TypeAnnotated<'src> {
