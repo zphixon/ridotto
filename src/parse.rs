@@ -346,7 +346,7 @@ impl<'src> Scanner<'src> {
 
             "/" => {
                 if self.peek_grapheme() == "/" {
-                    while !matches!(self.peek_grapheme(), "\n" | "") {
+                    while !matches!(self.peek_grapheme(), "\r\n" | "\n" | "") {
                         self.next_grapheme();
                     }
                     self.next_type()
