@@ -1,4 +1,4 @@
-use crate::parse::{Pos, Token, TokenType};
+use crate::scan::{Pos, Token, TokenType};
 
 #[derive(Debug)]
 pub enum RidottoError {

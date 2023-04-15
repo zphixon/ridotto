@@ -1,6 +1,6 @@
 #![allow(unused_variables, dead_code, unused_mut)]
 
-use crate::{ast::Item, error::RidottoError, parse::Token};
+use crate::{ast::Item, error::RidottoError, scan::Token};
 use fnv::FnvHashMap;
 use slotmap::{DefaultKey, SlotMap};
 

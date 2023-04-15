@@ -1,4 +1,4 @@
-use crate::parse::Token;
+use crate::scan::Token;
 use std::fmt::{Debug, Formatter};
 
 /// top level item

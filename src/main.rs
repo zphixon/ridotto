@@ -1,10 +1,11 @@
-use crate::parse::{print_tokens, Scanner, TokenType};
+use crate::scan::{print_tokens, Scanner, TokenType};
 
 mod ast;
 mod error;
 mod ns;
 mod ns2;
 mod parse;
+mod scan;
 mod typeck;
 
 fn main() {
