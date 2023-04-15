@@ -102,6 +102,7 @@ pub enum TypeExpr<'src> {
         name: TypeName<'src>,
         type_args: Vec<TypeExpr<'src>>,
     },
+    /// fn[...](...) -> ...
     FnType {
         type_args: Vec<TypeExpr<'src>>,
         args: Vec<TypeExpr<'src>>,

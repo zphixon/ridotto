@@ -72,32 +72,11 @@ type Option[t] {
     }
 }
 
-class Monad[a, b=Int[pog]] {
+class Monad[a, b] {
     fn wrap(a: a) -> Monad[a]
-    fn map(m: Monad[a], f: Fn[a, Monad[b]]) -> Monad[b]
-
-    fn wowee() -> Wow.Wee[A.B.C] {
-        wowee
-    }
+    fn map(m: Monad[a], f: fn(a) -> Monad[b]) -> Monad[b]
 }
 
-//type Option[t] {
-//    Some { value: t }
-//    None
-//
-//    fn unwrap(self: Self) -> t {
-//        match self {
-//            Option.Some { value } => value,
-//            Option.None => panic("called unwrap on None value")
-//        }
-//    }
-//}
-//
-//class Monad[a, b] {
-//    fn wrap(a: a) -> Monad[a]
-//    fn map(m: Monad[a], fn(a) -> Monad[b]) -> Monad[b]
-//}
-//
 //impl Monad[a, b] for Option[a] {
 //    fn wrap(value: a) -> Option[a] {
 //        Option.Some { value }

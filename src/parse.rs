@@ -848,6 +848,18 @@ fn parse_type_expr<'src>(
     scanner: &mut Scanner<'src>,
     depth: usize,
 ) -> Result<TypeExpr<'src>, RidottoError> {
+    if scanner.peek_token().type_ == TokenType::Fn {
+        parse_fn_type_expr(scanner, depth)
+    } else {
+        parse_regular_type_expr(scanner, depth)
+    }
+}
+
+#[ridotto_macros::parser_traced]
+fn parse_regular_type_expr<'src>(
+    scanner: &mut Scanner<'src>,
+    depth: usize,
+) -> Result<TypeExpr<'src>, RidottoError> {
     let name = parse_type_name(scanner, depth)?;
 
     match (&name, scanner.peek_token().type_) {
@@ -873,6 +885,47 @@ fn parse_type_expr<'src>(
             default: None,
         }),
     }
+}
+
+#[ridotto_macros::parser_traced]
+fn parse_fn_type_expr<'src>(
+    scanner: &mut Scanner<'src>,
+    depth: usize,
+) -> Result<TypeExpr<'src>, RidottoError> {
+    consume(scanner, TokenType::Fn, depth)?;
+
+    let type_args = if scanner.peek_token().type_ == TokenType::LeftBracket {
+        parse_type_args(scanner, depth)?
+    } else {
+        Vec::new()
+    };
+
+    let mut args = Vec::new();
+    consume(scanner, TokenType::LeftParen, depth)?;
+    while scanner.peek_token().type_ != TokenType::RightParen {
+        args.push(parse_type_expr(scanner, depth)?);
+        if scanner.peek_token().type_ != TokenType::RightParen {
+            consume(scanner, TokenType::Comma, depth)?;
+        }
+    }
+    if !type_args.is_empty() && scanner.peek_token().type_ == TokenType::Comma {
+        scanner.next_token();
+    }
+    consume(scanner, TokenType::RightParen, depth)?;
+
+    let return_ = if scanner.peek_token().type_ == TokenType::Minus {
+        consume(scanner, TokenType::Minus, depth)?;
+        consume(scanner, TokenType::RightAngle, depth)?;
+        Some(Box::new(parse_type_expr(scanner, depth)?))
+    } else {
+        None
+    };
+
+    Ok(TypeExpr::FnType {
+        type_args,
+        args,
+        return_,
+    })
 }
 
 #[ridotto_macros::parser_traced]
