@@ -579,6 +579,10 @@ pub fn parse(source: &str) -> Result<Vec<Item<'_>>, RidottoError> {
                 ast.push(Item::ItemClass(parse_class(&mut scanner, 0)?));
             }
 
+            TokenType::Impl => {
+                ast.push(Item::ItemImpl(parse_impl(&mut scanner, 0)?));
+            }
+
             _ => return Err(RidottoError::expected_item(scanner.peek_token())),
         }
     }
@@ -714,6 +718,29 @@ fn parse_class<'src>(
     Ok(Class {
         name,
         type_args,
+        behaviors,
+    })
+}
+
+#[ridotto_macros::parser_traced]
+fn parse_impl<'src>(scanner: &mut Scanner<'src>, depth: usize) -> Result<Impl<'src>, RidottoError> {
+    consume(scanner, TokenType::Impl, depth)?;
+    let class = parse_type_expr(scanner, depth)?;
+    consume(scanner, TokenType::For, depth)?;
+    let for_ = parse_type_expr(scanner, depth)?;
+
+    consume(scanner, TokenType::LeftBrace, depth)?;
+
+    let mut behaviors = Vec::new();
+    while scanner.peek_token().type_.starts_function() {
+        behaviors.push(parse_function(scanner, depth)?);
+    }
+
+    consume(scanner, TokenType::RightBrace, depth)?;
+
+    Ok(Impl {
+        class,
+        for_,
         behaviors,
     })
 }

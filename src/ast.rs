@@ -6,7 +6,6 @@ use std::fmt::{Debug, Formatter};
 pub enum Item<'src> {
     ItemTypeDecl(TypeDecl<'src>),
     ItemClass(Class<'src>),
-    #[allow(dead_code)]
     ItemImpl(Impl<'src>),
     ItemFunction(Function<'src>),
 }
@@ -73,7 +72,9 @@ pub enum MaybeAbstractFunction<'src> {
 /// implementation of a class on a type
 #[derive(Debug)]
 pub struct Impl<'src> {
-    lt: std::marker::PhantomData<&'src ()>,
+    pub class: TypeExpr<'src>,
+    pub for_: TypeExpr<'src>,
+    pub behaviors: Vec<Function<'src>>,
 }
 
 #[derive(Debug)]

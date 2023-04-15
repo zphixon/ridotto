@@ -77,19 +77,19 @@ class Monad[a, b] {
     fn map(m: Monad[a], f: fn(a) -> Monad[b]) -> Monad[b]
 }
 
-//impl Monad[a, b] for Option[a] {
-//    fn wrap(value: a) -> Option[a] {
-//        Option.Some { value }
-//    }
-//
-//    fn map(self: Option[a], f: fn(a) -> Option[b]) -> Option[b] {
-//        match self {
-//            Option.Some { value } => f(value)
-//            Option.None => Option.None
-//        }
-//    }
-//}
-//
+impl Monad[a, b] for Option[a] {
+    fn wrap(value: a) -> Option[a] {
+        Option.Some { value }
+    }
+
+    fn map(self: Option[a], f: fn(a) -> Option[b]) -> Option[b] {
+        match self {
+            Option.Some { value } => f(value)
+            Option.None => Option.None
+        }
+    }
+}
+
 //impl Monad[a, b] for Result[a, e] {
 //    fn wrap(value: a) -> Result[a, e] {
 //        Result.Ok { value }
