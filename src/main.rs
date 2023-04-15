@@ -255,7 +255,7 @@ type Option[t] {
     Some { value: t }
     None
 
-    fn unwrap(self) -> t {
+    fn unwrap(self: Self) -> t {
         match self {
             Option.Some { value } => value,
             Option.None => panic("called unwrap on None value")
@@ -264,8 +264,8 @@ type Option[t] {
 }
 
 class Monad[a, b] {
-    fn wrap(a) -> Monad[a]
-    fn map(Monad[a], fn(a) -> Monad[b]) -> Monad[b]
+    fn wrap(a: a) -> Monad[a]
+    fn map(m: Monad[a], fn(a) -> Monad[b]) -> Monad[b]
 }
 
 impl Monad[a, b] for Option[a] {

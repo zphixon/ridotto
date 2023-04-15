@@ -603,33 +603,11 @@ fn trace(depth: usize, prefix: &str, func: &str, scanner: &mut Scanner) {
     );
 }
 
-macro_rules! parse_fn {
-    ($what: ident -> $returns: ty, $body: expr) => {
-        paste::paste! {
-            fn [<parse_ $what>]<'src>(
-                scanner: &mut Scanner<'src>,
-                depth: usize,
-            ) -> Result<$returns, RidottoError> {
-                trace(depth, "> parse_", stringify!($what), scanner);
-
-                if depth > 50 {
-                    tracing::error!("recursion limit reached");
-                    return Err(RidottoError::RecursionLimitReached {
-                        pos: scanner.peek_token().pos
-                    });
-                }
-
-                let result = ($body)(scanner, depth + 1);
-
-                trace(depth, "< parse_", stringify!($what), scanner);
-
-                result
-            }
-        }
-    };
-}
-
-parse_fn!(type_decl -> TypeDecl<'src>, |scanner: &mut Scanner<'src>, depth| {
+#[ridotto_macros::parser_traced]
+fn parse_type_decl<'src>(
+    scanner: &mut Scanner<'src>,
+    depth: usize,
+) -> Result<TypeDecl<'src>, RidottoError> {
     consume(scanner, TokenType::Type, depth)?;
     let name = consume_upper(scanner, depth)?;
 
@@ -646,7 +624,7 @@ parse_fn!(type_decl -> TypeDecl<'src>, |scanner: &mut Scanner<'src>, depth| {
         }
     } else {
         TypeDeclInnerOrAlias::TypeDeclInner {
-            inner: parse_regular_type(scanner, depth)?,
+            inner: parse_type_decl_inner(scanner, depth)?,
         }
     };
 
@@ -655,9 +633,13 @@ parse_fn!(type_decl -> TypeDecl<'src>, |scanner: &mut Scanner<'src>, depth| {
         type_args,
         inner,
     })
-});
+}
 
-parse_fn!(type_variant -> TypeVariant<'src>, |scanner: &mut Scanner<'src>, depth| {
+#[ridotto_macros::parser_traced]
+fn parse_type_variant<'src>(
+    scanner: &mut Scanner<'src>,
+    depth: usize,
+) -> Result<TypeVariant<'src>, RidottoError> {
     let name = consume_upper(scanner, depth)?;
 
     let inner = if scanner.peek_token().type_ == TokenType::Equal {
@@ -667,14 +649,18 @@ parse_fn!(type_variant -> TypeVariant<'src>, |scanner: &mut Scanner<'src>, depth
         }
     } else {
         TypeDeclInnerOrAlias::TypeDeclInner {
-            inner: parse_regular_type(scanner, depth)?,
+            inner: parse_type_decl_inner(scanner, depth)?,
         }
     };
 
     Ok(TypeVariant { name, inner })
-});
+}
 
-parse_fn!(regular_type -> TypeDeclInner<'src>, | scanner: &mut Scanner<'src>, depth| {
+#[ridotto_macros::parser_traced]
+fn parse_type_decl_inner<'src>(
+    scanner: &mut Scanner<'src>,
+    depth: usize,
+) -> Result<TypeDeclInner<'src>, RidottoError> {
     let mut fields = Vec::new();
     let mut variants = Vec::new();
     let mut behaviors = Vec::new();
@@ -698,9 +684,13 @@ parse_fn!(regular_type -> TypeDeclInner<'src>, | scanner: &mut Scanner<'src>, de
         variants,
         behaviors,
     })
-});
+}
 
-parse_fn!(class -> Class<'src>, |scanner: &mut Scanner<'src>, depth| {
+#[ridotto_macros::parser_traced]
+fn parse_class<'src>(
+    scanner: &mut Scanner<'src>,
+    depth: usize,
+) -> Result<Class<'src>, RidottoError> {
     consume(scanner, TokenType::Class, depth)?;
 
     let name = consume_upper(scanner, depth)?;
@@ -733,15 +723,23 @@ parse_fn!(class -> Class<'src>, |scanner: &mut Scanner<'src>, depth| {
         type_args,
         behaviors,
     })
-});
+}
 
-parse_fn!(function -> Function<'src>, |scanner: &mut Scanner<'src>, depth| {
+#[ridotto_macros::parser_traced]
+fn parse_function<'src>(
+    scanner: &mut Scanner<'src>,
+    depth: usize,
+) -> Result<Function<'src>, RidottoError> {
     let head = parse_function_head(scanner, depth)?;
     let body = parse_function_body(scanner, depth)?;
     Ok(Function { head, body })
-});
+}
 
-parse_fn!(function_head -> FunctionHead<'src>, |scanner: &mut Scanner<'src>, depth| {
+#[ridotto_macros::parser_traced]
+fn parse_function_head<'src>(
+    scanner: &mut Scanner<'src>,
+    depth: usize,
+) -> Result<FunctionHead<'src>, RidottoError> {
     let mut builtin = false;
     let mut async_ = false;
     let mut const_ = false;
@@ -814,9 +812,13 @@ parse_fn!(function_head -> FunctionHead<'src>, |scanner: &mut Scanner<'src>, dep
         args,
         return_,
     })
-});
+}
 
-parse_fn!(function_body -> Vec<Stmt<'src>>, |scanner: &mut Scanner<'src>, depth| {
+#[ridotto_macros::parser_traced]
+fn parse_function_body<'src>(
+    scanner: &mut Scanner<'src>,
+    depth: usize,
+) -> Result<Vec<Stmt<'src>>, RidottoError> {
     let mut depth = 0;
     while {
         if scanner.peek_token().type_ == TokenType::LeftBrace {
@@ -833,18 +835,26 @@ parse_fn!(function_body -> Vec<Stmt<'src>>, |scanner: &mut Scanner<'src>, depth|
     }
 
     Ok(Vec::new())
-});
+}
 
-parse_fn!(annotated -> TypeAnnotated<'src>, |scanner: &mut Scanner<'src>, depth| {
+#[ridotto_macros::parser_traced]
+fn parse_annotated<'src>(
+    scanner: &mut Scanner<'src>,
+    depth: usize,
+) -> Result<TypeAnnotated<'src>, RidottoError> {
     let name = consume_lower(scanner, depth)?;
     consume(scanner, TokenType::Colon, depth)?;
     Ok(TypeAnnotated {
         name,
         type_: parse_type_expr(scanner, depth)?,
     })
-});
+}
 
-parse_fn!(type_expr -> TypeExpr<'src>, |scanner: &mut Scanner<'src>, depth| {
+#[ridotto_macros::parser_traced]
+fn parse_type_expr<'src>(
+    scanner: &mut Scanner<'src>,
+    depth: usize,
+) -> Result<TypeExpr<'src>, RidottoError> {
     let name = parse_type_name(scanner, depth)?;
 
     match (&name, scanner.peek_token().type_) {
@@ -870,9 +880,13 @@ parse_fn!(type_expr -> TypeExpr<'src>, |scanner: &mut Scanner<'src>, depth| {
             default: None,
         }),
     }
-});
+}
 
-parse_fn!(type_args -> Vec<TypeExpr<'src>>, |scanner: &mut Scanner<'src>, depth| {
+#[ridotto_macros::parser_traced]
+fn parse_type_args<'src>(
+    scanner: &mut Scanner<'src>,
+    depth: usize,
+) -> Result<Vec<TypeExpr<'src>>, RidottoError> {
     let mut type_args = Vec::new();
     consume(scanner, TokenType::LeftBracket, depth)?;
     while scanner.peek_token().type_ != TokenType::RightBracket {
@@ -886,9 +900,13 @@ parse_fn!(type_args -> Vec<TypeExpr<'src>>, |scanner: &mut Scanner<'src>, depth|
     }
     consume(scanner, TokenType::RightBracket, depth)?;
     Ok(type_args)
-});
+}
 
-parse_fn!(type_expr_no_default -> TypeExprNoDefault<'src>, | scanner: &mut Scanner<'src>, depth| {
+#[ridotto_macros::parser_traced]
+fn parse_type_expr_no_default<'src>(
+    scanner: &mut Scanner<'src>,
+    depth: usize,
+) -> Result<TypeExprNoDefault<'src>, RidottoError> {
     let name = parse_type_name(scanner, depth)?;
 
     if scanner.peek_token().type_ == TokenType::LeftBracket {
@@ -909,12 +927,16 @@ parse_fn!(type_expr_no_default -> TypeExprNoDefault<'src>, | scanner: &mut Scann
     } else {
         Ok(match &name {
             TypeName::Namespace(_) | TypeName::TypeValue(_) => TypeExprNoDefault::Concrete { name },
-            TypeName::TypeVar(_) => TypeExprNoDefault::TypeVar { name }
+            TypeName::TypeVar(_) => TypeExprNoDefault::TypeVar { name },
         })
     }
-});
+}
 
-parse_fn!(type_name -> TypeName<'src>, |scanner: &mut Scanner<'src>, depth| {
+#[ridotto_macros::parser_traced]
+fn parse_type_name<'src>(
+    scanner: &mut Scanner<'src>,
+    depth: usize,
+) -> Result<TypeName<'src>, RidottoError> {
     let name = consume_ident(scanner, depth)?;
     if name.type_ == TokenType::UpperIdent {
         let uppercase = NameUppercase { uppercase: name };
@@ -933,7 +955,7 @@ parse_fn!(type_name -> TypeName<'src>, |scanner: &mut Scanner<'src>, depth| {
     } else {
         unreachable!()
     }
-});
+}
 
 fn consume_ident<'src>(
     scanner: &mut Scanner<'src>,

@@ -100,6 +100,11 @@ pub enum TypeExpr<'src> {
         name: TypeName<'src>,
         type_args: Vec<TypeExpr<'src>>,
     },
+    FnType {
+        type_args: Vec<TypeExpr<'src>>,
+        args: Vec<TypeExpr<'src>>,
+        return_: Option<Box<TypeExpr<'src>>>,
+    },
 }
 
 /// type expression without defaults allowed
@@ -216,6 +221,20 @@ impl Debug for TypeExpr<'_> {
                 .field("name", &name.name())
                 .field("type_args", type_args)
                 .finish(),
+
+            TypeExpr::FnType {
+                type_args,
+                args,
+                return_,
+            } => {
+                let mut dbg = f.debug_struct("FnType");
+                dbg.field("type_args", type_args);
+                dbg.field("args", args);
+                if let Some(return_) = return_.as_ref() {
+                    dbg.field("return_", return_);
+                }
+                dbg.finish()
+            }
         }
     }
 }
