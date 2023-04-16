@@ -25,6 +25,8 @@ pub enum TypeDeclInnerOrAlias<'src> {
     TypeDeclAlias { alias: TypeExpr<'src> },
     /// type X { ... }
     TypeDeclInner { inner: TypeDeclInner<'src> },
+    /// type X(...)
+    TypeDeclTuple { fields: Vec<TypeExpr<'src>> },
 }
 
 pub struct TypeDeclInner<'src> {
@@ -114,6 +116,10 @@ pub enum Expr<'src> {
     },
     Variable {
         variable: NameLowercase<'src>,
+    },
+    Instantiate {
+        type_: TypeName<'src>,
+        values: (),
     },
 }
 
@@ -215,6 +221,9 @@ impl Debug for TypeDecl<'_> {
                 dbg.field("variants", &inner.variants);
                 dbg.field("behaviors", &inner.behaviors);
             }
+            TypeDeclInnerOrAlias::TypeDeclTuple { fields } => {
+                dbg.field("fields", &fields);
+            }
         }
         dbg.finish()
     }
@@ -232,6 +241,9 @@ impl Debug for TypeVariant<'_> {
                 dbg.field("fields", &inner.fields);
                 dbg.field("variants", &inner.variants);
                 dbg.field("behaviors", &inner.behaviors);
+            }
+            TypeDeclInnerOrAlias::TypeDeclTuple { fields } => {
+                dbg.field("fields", fields);
             }
         }
         dbg.finish()

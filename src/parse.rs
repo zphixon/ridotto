@@ -88,6 +88,15 @@ fn parse_type_variant<'src>(
         TypeDeclInnerOrAlias::TypeDeclAlias {
             alias: parse_type_expr(scanner, depth)?,
         }
+    } else if scanner.peek_token().type_ == TokenType::LeftParen {
+        let TypeExpr::Tuple {
+            inner: fields,
+            ..
+        } = parse_tuple_type_expr(scanner, depth)? else {
+            unreachable!()
+        };
+
+        TypeDeclInnerOrAlias::TypeDeclTuple { fields }
     } else {
         TypeDeclInnerOrAlias::TypeDeclInner {
             inner: parse_type_decl_inner(scanner, depth)?,

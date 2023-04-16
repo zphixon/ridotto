@@ -67,7 +67,7 @@ type Point[Math[n]] {
 }
 
 type Option[t] {
-    Some { value: t }
+    Some(t)
     None
 
     fn unwrap(self: Self) -> t {
@@ -94,6 +94,11 @@ impl Monad[a, b] for Option[a] {
             Option.None => Option.None
         }
     }
+}
+
+type Result[t, e] {
+    Ok(t)
+    Err(e)
 }
 
 impl Monad[a, b] for Result[a, e] {
