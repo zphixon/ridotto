@@ -96,8 +96,8 @@ pub enum Expr<'src> {
         expr: Box<Expr<'src>>,
     },
     GetFrom {
-        namespace: TypeName<'src>,
-        behavior: Option<NameLowercase<'src>>,
+        object: Box<Expr<'src>>,
+        name: Identifier<'src>,
     },
     Call {
         callee: Box<Expr<'src>>,
@@ -115,10 +115,14 @@ pub enum Expr<'src> {
     Variable {
         variable: NameLowercase<'src>,
     },
-    Instantiate {
-        type_: TypeName<'src>,
-        values: (),
+    TypeName {
+        type_: NameUppercase<'src>,
     },
+}
+
+pub enum Identifier<'src> {
+    NameUppercase(NameUppercase<'src>),
+    NameLowercase(NameLowercase<'src>),
 }
 
 pub struct TypeAnnotated<'src> {
@@ -381,11 +385,11 @@ impl Debug for Stmt<'_> {
 impl Debug for Expr<'_> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
-            Expr::Binary { lhs, op, rhs } => f
-                .debug_struct(op.lexeme)
-                .field("rhs", rhs)
-                .field("lhs", lhs)
-                .finish(),
+            Expr::Binary { lhs, op, rhs } => {
+                f.debug_tuple(op.lexeme).field(lhs).field(rhs).finish()
+            }
+
+            Expr::Unary { op, rhs } => f.debug_tuple(op.lexeme).field(rhs).finish(),
 
             Expr::Call { callee, args } => f
                 .debug_struct("Call")
@@ -398,7 +402,27 @@ impl Debug for Expr<'_> {
                 .field(&variable.lowercase.lexeme)
                 .finish(),
 
-            _ => f.debug_struct("Todo").finish(),
+            Expr::GetFrom { object, name } => {
+                f.debug_tuple("GetFrom").field(object).field(name).finish()
+            }
+
+            Expr::TypeName { type_ } => f
+                .debug_tuple("TypeName")
+                .field(&type_.uppercase.lexeme)
+                .finish(),
+
+            Expr::Literal { literal } => literal.lexeme.fmt(f),
+
+            _ => f.debug_tuple("Todo").finish(),
+        }
+    }
+}
+
+impl Debug for Identifier<'_> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Identifier::NameLowercase(lowercase) => lowercase.lowercase.lexeme.fmt(f),
+            Identifier::NameUppercase(uppercase) => uppercase.uppercase.lexeme.fmt(f),
         }
     }
 }

@@ -495,6 +495,12 @@ fn parse_call<'src>(scanner: &mut Scanner<'src>, depth: usize) -> Result<Expr<'s
                 )?;
                 primary = Expr::Call { callee, args };
             }
+            TokenType::Period => {
+                consume(scanner, TokenType::Period, depth)?;
+                let object = Box::new(primary);
+                let name = consume_ident(scanner, depth)?;
+                primary = Expr::GetFrom { object, name };
+            }
             _ => break (Ok(primary)),
         }
     }
@@ -508,6 +514,15 @@ fn parse_primary<'src>(
     match scanner.peek_token().type_ {
         TokenType::LowerIdent => Ok(Expr::Variable {
             variable: consume_lower(scanner, depth)?,
+        }),
+        TokenType::UpperIdent => Ok(Expr::TypeName {
+            type_: consume_upper(scanner, depth)?,
+        }),
+        TokenType::Int(int) => Ok(Expr::Literal {
+            literal: consume(scanner, TokenType::Int(int), depth)?,
+        }),
+        TokenType::Float(float) => Ok(Expr::Literal {
+            literal: consume(scanner, TokenType::Float(float), depth)?,
         }),
         _ => Err(RidottoError::expected_expression(scanner.peek_token())),
     }
@@ -664,23 +679,20 @@ fn parse_type_name<'src>(
     scanner: &mut Scanner<'src>,
     depth: usize,
 ) -> Result<TypeName<'src>, RidottoError> {
-    let name = consume_ident(scanner, depth)?;
-    if name.type_ == TokenType::UpperIdent {
-        let uppercase = NameUppercase { uppercase: name };
-        if scanner.peek_token().type_ == TokenType::Period {
-            let mut names = vec![uppercase];
-            while scanner.peek_token().type_ == TokenType::Period {
-                scanner.next_token();
-                names.push(consume_upper(scanner, depth)?);
+    match consume_ident(scanner, depth)? {
+        Identifier::NameUppercase(uppercase) => {
+            if scanner.peek_token().type_ == TokenType::Period {
+                let mut names = vec![uppercase];
+                while scanner.peek_token().type_ == TokenType::Period {
+                    scanner.next_token();
+                    names.push(consume_upper(scanner, depth)?);
+                }
+                Ok(TypeName::Namespace(names))
+            } else {
+                Ok(TypeName::TypeValue(uppercase))
             }
-            Ok(TypeName::Namespace(names))
-        } else {
-            Ok(TypeName::TypeValue(uppercase))
         }
-    } else if name.type_ == TokenType::LowerIdent {
-        Ok(TypeName::TypeVar(NameLowercase { lowercase: name }))
-    } else {
-        unreachable!()
+        Identifier::NameLowercase(lowercase) => Ok(TypeName::TypeVar(lowercase)),
     }
 }
 
@@ -710,11 +722,19 @@ fn comma_delimited<'src, T>(
 fn consume_ident<'src>(
     scanner: &mut Scanner<'src>,
     depth: usize,
-) -> Result<Token<'src>, RidottoError> {
+) -> Result<Identifier<'src>, RidottoError> {
     trace(depth, "- ", "consume_ident", scanner);
     let name = scanner.next_token();
     if name.type_.is_ident() {
-        Ok(name)
+        match name.type_ {
+            TokenType::UpperIdent => {
+                Ok(Identifier::NameUppercase(NameUppercase { uppercase: name }))
+            }
+            TokenType::LowerIdent => {
+                Ok(Identifier::NameLowercase(NameLowercase { lowercase: name }))
+            }
+            _ => unreachable!(),
+        }
     } else {
         Err(RidottoError::expected_identifier(name))
     }

@@ -20,7 +20,7 @@ fn main() {
 
     let src = r#"
 fn main(args: List[String]) {
-    print(args)
+    Math.sqrt(Math.powi(b.x - a.x, 23.45) + Math.powi(b.y - a.y, -2))
 }
 "#;
 

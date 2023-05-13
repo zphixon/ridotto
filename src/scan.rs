@@ -114,10 +114,10 @@ pub enum TokenType {
     String,
     True,
     False,
-    #[allow(dead_code)]
     Float(f64),
-    #[allow(dead_code)]
     Int(i64),
+
+    Unknown,
 
     Eof,
 }
@@ -414,8 +414,10 @@ impl<'src> Scanner<'src> {
                 }
             }
 
+            "0" | "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9" => self.number(),
+
             _ => {
-                // TODO numbers, strings
+                // TODO strings
                 self.identifier_or_keyword()
             }
         }
@@ -446,23 +448,61 @@ impl<'src> Scanner<'src> {
     }
 
     fn identifier_or_keyword(&mut self) -> TokenType {
-        //let mut
         while identifier_grapheme(self.peek_grapheme()) {
             self.next_grapheme();
         }
 
         let lexeme = self.lexeme();
         if let Some(tk) = into_keyword(lexeme) {
-            tk
+            return tk;
+        }
+
+        if let Some(true) = lexeme.chars().take(1).next().map(|c| c.is_lowercase()) {
+            TokenType::LowerIdent
+        } else if let Some(true) = lexeme.chars().take(1).next().map(|c| c.is_uppercase()) {
+            TokenType::UpperIdent
         } else {
-            if lexeme.chars().take(1).next().unwrap().is_lowercase() {
-                TokenType::LowerIdent
-            } else if lexeme.chars().take(1).next().unwrap().is_uppercase() {
-                TokenType::UpperIdent
+            TokenType::Unknown
+        }
+    }
+
+    fn number(&mut self) -> TokenType {
+        // TODO handle other bases
+        while let Some(true) = self
+            .peek_grapheme()
+            .chars()
+            .take(1)
+            .next()
+            .map(|c| c.is_numeric())
+        {
+            self.next_grapheme();
+        }
+
+        if let Ok(int) = self.lexeme().parse() {
+            if self.peek_grapheme() == "." {
+                // TODO handle exponential notation
+                self.next_grapheme();
+
+                while let Some(true) = self
+                    .peek_grapheme()
+                    .chars()
+                    .take(1)
+                    .next()
+                    .map(|c| c.is_numeric())
+                {
+                    self.next_grapheme();
+                }
+
+                if let Ok(float) = self.lexeme().parse() {
+                    TokenType::Float(float)
+                } else {
+                    TokenType::Unknown
+                }
             } else {
-                println!("TODO: '{}'", lexeme);
-                TokenType::LowerIdent
+                TokenType::Int(int)
             }
+        } else {
+            TokenType::Unknown
         }
     }
 }
