@@ -260,18 +260,13 @@ fn parse_function_head<'src>(
         Vec::new()
     };
 
-    let mut args = Vec::new();
-    consume(scanner, TokenType::LeftParen, depth)?;
-    while scanner.peek_token().type_ != TokenType::RightParen {
-        args.push(parse_annotated(scanner, depth)?);
-        if scanner.peek_token().type_ != TokenType::RightParen {
-            consume(scanner, TokenType::Comma, depth)?;
-        }
-    }
-    if !args.is_empty() && scanner.peek_token().type_ == TokenType::Comma {
-        scanner.next_token();
-    }
-    consume(scanner, TokenType::RightParen, depth)?;
+    let args = comma_delimited(
+        scanner,
+        depth,
+        TokenType::LeftParen,
+        TokenType::RightParen,
+        parse_annotated,
+    )?;
 
     let return_ = if scanner.peek_token().type_ == TokenType::Minus {
         consume(scanner, TokenType::Minus, depth)?;
@@ -380,18 +375,13 @@ fn parse_tuple_type_expr<'src>(
     scanner: &mut Scanner<'src>,
     depth: usize,
 ) -> Result<TypeExpr<'src>, RidottoError> {
-    let mut inner = Vec::new();
-    consume(scanner, TokenType::LeftParen, depth)?;
-    while scanner.peek_token().type_ != TokenType::RightParen {
-        inner.push(parse_type_expr(scanner, depth)?);
-        if scanner.peek_token().type_ != TokenType::RightParen {
-            consume(scanner, TokenType::Comma, depth)?;
-        }
-    }
-    if !inner.is_empty() && scanner.peek_token().type_ == TokenType::Comma {
-        scanner.next_token();
-    }
-    consume(scanner, TokenType::RightParen, depth)?;
+    let inner = comma_delimited(
+        scanner,
+        depth,
+        TokenType::LeftParen,
+        TokenType::RightParen,
+        parse_type_expr,
+    )?;
     Ok(TypeExpr::Tuple { inner })
 }
 
@@ -434,19 +424,13 @@ fn parse_type_args<'src>(
     scanner: &mut Scanner<'src>,
     depth: usize,
 ) -> Result<Vec<TypeExpr<'src>>, RidottoError> {
-    let mut type_args = Vec::new();
-    consume(scanner, TokenType::LeftBracket, depth)?;
-    while scanner.peek_token().type_ != TokenType::RightBracket {
-        type_args.push(parse_type_expr(scanner, depth)?);
-        if scanner.peek_token().type_ != TokenType::RightBracket {
-            consume(scanner, TokenType::Comma, depth)?;
-        }
-    }
-    if !type_args.is_empty() && scanner.peek_token().type_ == TokenType::Comma {
-        scanner.next_token();
-    }
-    consume(scanner, TokenType::RightBracket, depth)?;
-    Ok(type_args)
+    comma_delimited(
+        scanner,
+        depth,
+        TokenType::LeftBracket,
+        TokenType::RightBracket,
+        parse_type_expr,
+    )
 }
 
 #[ridotto_macros::parser_traced]
@@ -457,19 +441,13 @@ fn parse_type_expr_no_default<'src>(
     let name = parse_type_name(scanner, depth)?;
 
     if scanner.peek_token().type_ == TokenType::LeftBracket {
-        let mut type_args = Vec::new();
-        consume(scanner, TokenType::LeftBracket, depth)?;
-        while scanner.peek_token().type_ != TokenType::RightBracket {
-            type_args.push(parse_type_expr_no_default(scanner, depth)?);
-            if scanner.peek_token().type_ != TokenType::RightBracket {
-                consume(scanner, TokenType::Comma, depth)?;
-            }
-        }
-        if !type_args.is_empty() && scanner.peek_token().type_ == TokenType::Comma {
-            scanner.next_token();
-        }
-        consume(scanner, TokenType::RightBracket, depth)?;
-
+        let type_args = comma_delimited(
+            scanner,
+            depth,
+            TokenType::LeftBracket,
+            TokenType::RightBracket,
+            parse_type_expr_no_default,
+        )?;
         Ok(TypeExprNoDefault::Instantiated { name, type_args })
     } else {
         Ok(match &name {
@@ -502,6 +480,29 @@ fn parse_type_name<'src>(
     } else {
         unreachable!()
     }
+}
+
+#[ridotto_macros::parser_traced]
+fn comma_delimited<'src, T>(
+    scanner: &mut Scanner<'src>,
+    depth: usize,
+    left_delimiter: TokenType,
+    right_delimiter: TokenType,
+    parse_inner: fn(&mut Scanner<'src>, usize) -> Result<T, RidottoError>,
+) -> Result<Vec<T>, RidottoError> {
+    let mut inner = Vec::new();
+    consume(scanner, left_delimiter, depth)?;
+    while scanner.peek_token().type_ != right_delimiter {
+        inner.push(parse_inner(scanner, depth)?);
+        if scanner.peek_token().type_ != right_delimiter {
+            consume(scanner, TokenType::Comma, depth)?;
+        }
+    }
+    if !inner.is_empty() && scanner.peek_token().type_ == TokenType::Comma {
+        scanner.next_token();
+    }
+    consume(scanner, right_delimiter, depth)?;
+    Ok(inner)
 }
 
 fn consume_ident<'src>(
