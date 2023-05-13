@@ -293,22 +293,224 @@ fn parse_function_body<'src>(
     scanner: &mut Scanner<'src>,
     depth: usize,
 ) -> Result<Vec<Stmt<'src>>, RidottoError> {
-    let mut depth = 0;
-    while {
-        if scanner.peek_token().type_ == TokenType::LeftBrace {
-            depth += 1;
-        }
-        if scanner.peek_token().type_ == TokenType::RightBrace {
-            depth -= 1;
-        }
-
-        scanner.next_token();
-        depth != 0
-    } {
-        // :)
+    let mut stmts = Vec::new();
+    consume(scanner, TokenType::LeftBrace, depth)?;
+    while scanner.peek_token().type_ != TokenType::RightBrace {
+        stmts.push(parse_stmt(scanner, depth)?);
     }
+    consume(scanner, TokenType::RightBrace, depth)?;
+    Ok(stmts)
+}
 
-    Ok(Vec::new())
+#[ridotto_macros::parser_traced]
+fn parse_stmt<'src>(scanner: &mut Scanner<'src>, depth: usize) -> Result<Stmt<'src>, RidottoError> {
+    match scanner.peek_token().type_ {
+        _ => Ok(Stmt::Expr(parse_expr(scanner, depth)?)),
+    }
+}
+
+#[ridotto_macros::parser_traced]
+fn parse_expr<'src>(scanner: &mut Scanner<'src>, depth: usize) -> Result<Expr<'src>, RidottoError> {
+    parse_logic_or(scanner, depth)
+}
+
+#[ridotto_macros::parser_traced]
+fn parse_logic_or<'src>(
+    scanner: &mut Scanner<'src>,
+    depth: usize,
+) -> Result<Expr<'src>, RidottoError> {
+    let mut logic_and = parse_logic_and(scanner, depth)?;
+    loop {
+        if scanner.peek_token().type_ == TokenType::DoubleBar {
+            let lhs = Box::new(logic_and);
+            let op = scanner.next_token();
+            let rhs = Box::new(parse_logic_or(scanner, depth)?);
+            logic_and = Expr::Binary { lhs, op, rhs };
+        } else {
+            break Ok(logic_and);
+        }
+    }
+}
+
+#[ridotto_macros::parser_traced]
+fn parse_logic_and<'src>(
+    scanner: &mut Scanner<'src>,
+    depth: usize,
+) -> Result<Expr<'src>, RidottoError> {
+    let mut equality = parse_equality(scanner, depth)?;
+    loop {
+        if scanner.peek_token().type_ == TokenType::DoubleAmp {
+            let lhs = Box::new(equality);
+            let op = scanner.next_token();
+            let rhs = Box::new(parse_logic_and(scanner, depth)?);
+            equality = Expr::Binary { lhs, op, rhs };
+        } else {
+            break Ok(equality);
+        }
+    }
+}
+
+#[ridotto_macros::parser_traced]
+fn parse_equality<'src>(
+    scanner: &mut Scanner<'src>,
+    depth: usize,
+) -> Result<Expr<'src>, RidottoError> {
+    let mut comparison = parse_comparison(scanner, depth)?;
+    loop {
+        if matches!(
+            scanner.peek_token().type_,
+            TokenType::DoubleEqual | TokenType::ExclamEqual
+        ) {
+            let lhs = Box::new(comparison);
+            let op = scanner.next_token();
+            let rhs = Box::new(parse_equality(scanner, depth)?);
+            comparison = Expr::Binary { lhs, op, rhs };
+        } else {
+            break Ok(comparison);
+        }
+    }
+}
+
+#[ridotto_macros::parser_traced]
+fn parse_comparison<'src>(
+    scanner: &mut Scanner<'src>,
+    depth: usize,
+) -> Result<Expr<'src>, RidottoError> {
+    let mut bit_op = parse_bit_op(scanner, depth)?;
+    loop {
+        if matches!(
+            scanner.peek_token().type_,
+            TokenType::LeftAngle
+                | TokenType::RightAngle
+                | TokenType::LeftAngleEqual
+                | TokenType::RightAngleEqual
+        ) {
+            let lhs = Box::new(bit_op);
+            let op = scanner.next_token();
+            let rhs = Box::new(parse_comparison(scanner, depth)?);
+            bit_op = Expr::Binary { lhs, op, rhs };
+        } else {
+            break Ok(bit_op);
+        }
+    }
+}
+
+#[ridotto_macros::parser_traced]
+fn parse_bit_op<'src>(
+    scanner: &mut Scanner<'src>,
+    depth: usize,
+) -> Result<Expr<'src>, RidottoError> {
+    let mut add_sub = parse_add_sub(scanner, depth)?;
+    loop {
+        if matches!(
+            scanner.peek_token().type_,
+            TokenType::DoubleLeftAngle
+                | TokenType::DoubleRightAngle
+                | TokenType::Amp
+                | TokenType::Bar
+                | TokenType::Caret
+        ) {
+            let lhs = Box::new(add_sub);
+            let op = scanner.next_token();
+            let rhs = Box::new(parse_bit_op(scanner, depth)?);
+            add_sub = Expr::Binary { lhs, op, rhs };
+        } else {
+            break Ok(add_sub);
+        }
+    }
+}
+
+#[ridotto_macros::parser_traced]
+fn parse_add_sub<'src>(
+    scanner: &mut Scanner<'src>,
+    depth: usize,
+) -> Result<Expr<'src>, RidottoError> {
+    let mut mul_div_mod = parse_mul_div_mod(scanner, depth)?;
+    loop {
+        if matches!(
+            scanner.peek_token().type_,
+            TokenType::Plus | TokenType::Minus
+        ) {
+            let lhs = Box::new(mul_div_mod);
+            let op = scanner.next_token();
+            let rhs = Box::new(parse_add_sub(scanner, depth)?);
+            mul_div_mod = Expr::Binary { lhs, op, rhs };
+        } else {
+            break Ok(mul_div_mod);
+        }
+    }
+}
+
+#[ridotto_macros::parser_traced]
+fn parse_mul_div_mod<'src>(
+    scanner: &mut Scanner<'src>,
+    depth: usize,
+) -> Result<Expr<'src>, RidottoError> {
+    let mut unary = parse_unary(scanner, depth)?;
+    loop {
+        if matches!(
+            scanner.peek_token().type_,
+            TokenType::Star | TokenType::Slash | TokenType::Percent
+        ) {
+            let lhs = Box::new(unary);
+            let op = scanner.next_token();
+            let rhs = Box::new(parse_mul_div_mod(scanner, depth)?);
+            unary = Expr::Binary { lhs, op, rhs };
+        } else {
+            break Ok(unary);
+        }
+    }
+}
+
+#[ridotto_macros::parser_traced]
+fn parse_unary<'src>(
+    scanner: &mut Scanner<'src>,
+    depth: usize,
+) -> Result<Expr<'src>, RidottoError> {
+    if matches!(
+        scanner.peek_token().type_,
+        TokenType::Exclam | TokenType::Minus
+    ) {
+        let op = scanner.next_token();
+        let rhs = Box::new(parse_unary(scanner, depth)?);
+        Ok(Expr::Unary { op, rhs })
+    } else {
+        parse_call(scanner, depth)
+    }
+}
+
+#[ridotto_macros::parser_traced]
+fn parse_call<'src>(scanner: &mut Scanner<'src>, depth: usize) -> Result<Expr<'src>, RidottoError> {
+    let mut primary = parse_primary(scanner, depth)?;
+    loop {
+        match scanner.peek_token().type_ {
+            TokenType::LeftParen => {
+                let callee = Box::new(primary);
+                let args = comma_delimited(
+                    scanner,
+                    depth,
+                    TokenType::LeftParen,
+                    TokenType::RightParen,
+                    parse_expr,
+                )?;
+                primary = Expr::Call { callee, args };
+            }
+            _ => break (Ok(primary)),
+        }
+    }
+}
+
+#[ridotto_macros::parser_traced]
+fn parse_primary<'src>(
+    scanner: &mut Scanner<'src>,
+    depth: usize,
+) -> Result<Expr<'src>, RidottoError> {
+    match scanner.peek_token().type_ {
+        TokenType::LowerIdent => Ok(Expr::Variable {
+            variable: consume_lower(scanner, depth)?,
+        }),
+        _ => Err(RidottoError::expected_expression(scanner.peek_token())),
+    }
 }
 
 #[ridotto_macros::parser_traced]

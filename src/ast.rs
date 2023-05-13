@@ -79,7 +79,6 @@ pub struct Impl<'src> {
     pub behaviors: Vec<Function<'src>>,
 }
 
-#[derive(Debug)]
 #[allow(dead_code)]
 pub enum Stmt<'src> {
     If {},
@@ -88,7 +87,6 @@ pub enum Stmt<'src> {
     Expr(Expr<'src>),
 }
 
-#[derive(Debug)]
 #[allow(dead_code)]
 pub enum Expr<'src> {
     Literal {
@@ -103,7 +101,7 @@ pub enum Expr<'src> {
     },
     Call {
         callee: Box<Expr<'src>>,
-        args: Box<Expr<'src>>,
+        args: Vec<Expr<'src>>,
     },
     Unary {
         op: Token<'src>,
@@ -368,5 +366,39 @@ impl Debug for Class<'_> {
             .field("type_args", &self.type_args)
             .field("behaviors", &self.behaviors)
             .finish()
+    }
+}
+
+impl Debug for Stmt<'_> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Stmt::Expr(expr) => expr.fmt(f),
+            _ => f.debug_struct("Todo").finish(),
+        }
+    }
+}
+
+impl Debug for Expr<'_> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Expr::Binary { lhs, op, rhs } => f
+                .debug_struct(op.lexeme)
+                .field("rhs", rhs)
+                .field("lhs", lhs)
+                .finish(),
+
+            Expr::Call { callee, args } => f
+                .debug_struct("Call")
+                .field("callee", callee)
+                .field("args", args)
+                .finish(),
+
+            Expr::Variable { variable } => f
+                .debug_tuple("Variable")
+                .field(&variable.lowercase.lexeme)
+                .finish(),
+
+            _ => f.debug_struct("Todo").finish(),
+        }
     }
 }

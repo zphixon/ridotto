@@ -16,7 +16,13 @@ fn main() {
     )
     .unwrap();
 
-    let src = std::fs::read_to_string("sample.ridotto").unwrap();
+    //let src = std::fs::read_to_string("sample.ridotto").unwrap();
+
+    let src = r#"
+fn main(args: List[String]) {
+    print(args)
+}
+"#;
 
     let mut scanner = Scanner::new(&src);
     let mut tokens = vec![];
