@@ -1,4 +1,4 @@
-use crate::scan::Token;
+use crate::{error::RidottoError, scan::Token};
 use std::fmt::{Debug, Formatter};
 
 /// top level item
@@ -103,6 +103,14 @@ pub enum Expr<'src> {
         callee: Box<Expr<'src>>,
         args: Vec<Expr<'src>>,
     },
+    StructInstantiate {
+        type_name: TypeName<'src>,
+        values: Vec<(NameLowercase<'src>, Expr<'src>)>,
+    },
+    TupleInstantiate {
+        type_name: TypeName<'src>,
+        values: Vec<Expr<'src>>,
+    },
     Unary {
         op: Token<'src>,
         rhs: Box<Expr<'src>>,
@@ -118,6 +126,25 @@ pub enum Expr<'src> {
     TypeName {
         type_: NameUppercase<'src>,
     },
+}
+
+impl Expr<'_> {
+    pub(crate) fn token(&self) -> Token {
+        match self {
+            Expr::Binary { lhs, .. } => lhs.token(),
+            Expr::Call { callee, .. } => callee.token(),
+            Expr::Literal { literal } => *literal,
+            Expr::Paren { expr } => expr.token(),
+            Expr::GetFrom { object, .. } => object.token(),
+            Expr::StructInstantiate { type_name, .. } => type_name.token(),
+            Expr::TupleInstantiate {
+                type_name: name, ..
+            } => name.token(),
+            Expr::Unary { op, .. } => *op,
+            Expr::Variable { variable } => variable.lowercase,
+            Expr::TypeName { type_ } => type_.uppercase,
+        }
+    }
 }
 
 pub enum Identifier<'src> {
@@ -195,6 +222,79 @@ impl TypeName<'_> {
             }
             TypeName::TypeValue(upper) => upper.uppercase.lexeme.into(),
             TypeName::TypeVar(lower) => lower.lowercase.lexeme.into(),
+        }
+    }
+
+    fn token(&self) -> Token<'_> {
+        match self {
+            TypeName::Namespace(ns) => ns.first().map(|upper| upper.uppercase).unwrap(),
+            TypeName::TypeValue(name) => name.uppercase,
+            TypeName::TypeVar(name) => name.lowercase,
+        }
+    }
+}
+
+pub enum ExprToTypeName<'src> {
+    TypeName(TypeName<'src>),
+    Not(Token<'src>),
+}
+
+impl<'src> TryFrom<&Expr<'src>> for ExprToTypeName<'src> {
+    type Error = RidottoError;
+    fn try_from(expr: &Expr<'src>) -> Result<Self, Self::Error> {
+        use crate::scan::TokenType;
+
+        // attempt to turn an Expr into a TypeName
+        match expr {
+            // the expr is {object}.{name}
+            Expr::GetFrom { object, name } => match name {
+                // name is Something
+                Identifier::NameUppercase(from) => {
+                    // attempt to turn object into a TypeName
+                    match ExprToTypeName::try_from(object.as_ref())? {
+                        // object is Something
+                        ExprToTypeName::TypeName(TypeName::TypeValue(prev)) => {
+                            Ok(ExprToTypeName::TypeName(TypeName::Namespace(vec![
+                                prev,
+                                NameUppercase {
+                                    uppercase: from.uppercase,
+                                },
+                            ])))
+                        }
+
+                        // object is Something.Otherthing
+                        ExprToTypeName::TypeName(TypeName::Namespace(mut names)) => {
+                            Ok(ExprToTypeName::TypeName(TypeName::Namespace({
+                                names.push(NameUppercase {
+                                    uppercase: from.uppercase,
+                                });
+                                names
+                            })))
+                        }
+
+                        // object is none of these things
+                        ExprToTypeName::TypeName(TypeName::TypeVar(lower)) => {
+                            Ok(ExprToTypeName::Not(lower.lowercase))
+                        }
+                        ExprToTypeName::Not(not) => Ok(ExprToTypeName::Not(not)),
+                    }
+                }
+
+                // name is otherthing
+                Identifier::NameLowercase(lower) => Ok(ExprToTypeName::Not(lower.lowercase)),
+            },
+
+            // the expr is Something
+            Expr::TypeName { type_ } => Ok(ExprToTypeName::TypeName(TypeName::TypeValue(
+                NameUppercase {
+                    uppercase: type_.uppercase,
+                },
+            ))),
+
+            _ => Err(RidottoError::expected_one_of(
+                [TokenType::UpperIdent, TokenType::LowerIdent],
+                expr.token(),
+            )),
         }
     }
 }
@@ -412,6 +512,22 @@ impl Debug for Expr<'_> {
                 .finish(),
 
             Expr::Literal { literal } => literal.lexeme.fmt(f),
+
+            Expr::StructInstantiate { type_name, values } => {
+                let mut dbg = f.debug_struct(&format!("Instantiate {}", type_name.name()));
+                for (name, value) in values.iter() {
+                    dbg.field(name.lowercase.lexeme, value);
+                }
+                dbg.finish()
+            }
+
+            Expr::TupleInstantiate { type_name, values } => {
+                let mut dbg = f.debug_tuple(&format!("Instantiate {}", type_name.name()));
+                for value in values.iter() {
+                    dbg.field(value);
+                }
+                dbg.finish()
+            }
 
             _ => f.debug_tuple("Todo").finish(),
         }

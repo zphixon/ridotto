@@ -19,8 +19,18 @@ fn main() {
     //let src = std::fs::read_to_string("sample.ridotto").unwrap();
 
     let src = r#"
+type Atype {
+    Michael {
+        x: Int
+    }
+    Tomlinson
+}
+
 fn main(args: List[String]) {
-    Math.sqrt(Math.powi(b.x - a.x, 23.45) + Math.powi(b.y - a.y, -2))
+    Atype.Bjeif.Froosh {
+        y: 32
+        b: 47
+    }
 }
 "#;
 

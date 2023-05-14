@@ -260,7 +260,7 @@ fn parse_function_head<'src>(
         Vec::new()
     };
 
-    let args = comma_delimited(
+    let args = maybe_comma_delimited(
         scanner,
         depth,
         TokenType::LeftParen,
@@ -486,24 +486,66 @@ fn parse_call<'src>(scanner: &mut Scanner<'src>, depth: usize) -> Result<Expr<'s
         match scanner.peek_token().type_ {
             TokenType::LeftParen => {
                 let callee = Box::new(primary);
-                let args = comma_delimited(
+
+                // TODO handle named arguments?
+                let args = maybe_comma_delimited(
                     scanner,
                     depth,
                     TokenType::LeftParen,
                     TokenType::RightParen,
                     parse_expr,
                 )?;
-                primary = Expr::Call { callee, args };
+
+                if let Ok(ExprToTypeName::TypeName(type_name)) =
+                    ExprToTypeName::try_from(callee.as_ref())
+                {
+                    primary = Expr::TupleInstantiate {
+                        type_name,
+                        values: args,
+                    };
+                } else {
+                    primary = Expr::Call { callee, args };
+                }
             }
+
             TokenType::Period => {
                 consume(scanner, TokenType::Period, depth)?;
                 let object = Box::new(primary);
                 let name = consume_ident(scanner, depth)?;
                 primary = Expr::GetFrom { object, name };
             }
+
+            TokenType::LeftBrace => {
+                let name = Box::new(primary);
+                match ExprToTypeName::try_from(name.as_ref())? {
+                    ExprToTypeName::TypeName(type_name) => {
+                        let values = maybe_comma_delimited(
+                            scanner,
+                            depth,
+                            TokenType::LeftBrace,
+                            TokenType::RightBrace,
+                            parse_struct_field,
+                        )?;
+                        primary = Expr::StructInstantiate { type_name, values };
+                    }
+                    ExprToTypeName::Not(not) => break (Err(RidottoError::expected_type_name(not))),
+                }
+            }
+
             _ => break (Ok(primary)),
         }
     }
+}
+
+#[ridotto_macros::parser_traced]
+fn parse_struct_field<'src>(
+    scanner: &mut Scanner<'src>,
+    depth: usize,
+) -> Result<(NameLowercase<'src>, Expr<'src>), RidottoError> {
+    let name = consume_lower(scanner, depth)?;
+    consume(scanner, TokenType::Colon, depth)?;
+    let value = parse_expr(scanner, depth)?;
+    Ok((name, value))
 }
 
 #[ridotto_macros::parser_traced]
@@ -709,6 +751,29 @@ fn comma_delimited<'src, T>(
     while scanner.peek_token().type_ != right_delimiter {
         inner.push(parse_inner(scanner, depth)?);
         if scanner.peek_token().type_ != right_delimiter {
+            consume(scanner, TokenType::Comma, depth)?;
+        }
+    }
+    if !inner.is_empty() && scanner.peek_token().type_ == TokenType::Comma {
+        scanner.next_token();
+    }
+    consume(scanner, right_delimiter, depth)?;
+    Ok(inner)
+}
+
+#[ridotto_macros::parser_traced]
+fn maybe_comma_delimited<'src, T>(
+    scanner: &mut Scanner<'src>,
+    depth: usize,
+    left_delimiter: TokenType,
+    right_delimiter: TokenType,
+    parse_inner: fn(&mut Scanner<'src>, usize) -> Result<T, RidottoError>,
+) -> Result<Vec<T>, RidottoError> {
+    let mut inner = Vec::new();
+    consume(scanner, left_delimiter, depth)?;
+    while scanner.peek_token().type_ != right_delimiter {
+        inner.push(parse_inner(scanner, depth)?);
+        if scanner.peek_token().type_ == TokenType::Comma {
             consume(scanner, TokenType::Comma, depth)?;
         }
     }
