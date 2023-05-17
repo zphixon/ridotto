@@ -23,10 +23,10 @@ type Atype {
 
 fn main(args: List[*String]) {
     let a = Atype.Bjeif.Froosh {
-        y: 32
-        b: 47
+        y: &32
+        b: *47
     }
-    var b = Atype.Bjeif.Froosh {
+    var b = &Atype.Bjeif.Froosh {
         y: 32
         b: 47
     }

@@ -487,7 +487,7 @@ fn parse_unary<'src>(
 ) -> Result<Expr<'src>, RidottoError> {
     if matches!(
         scanner.peek_token().type_,
-        TokenType::Exclam | TokenType::Minus
+        TokenType::Exclam | TokenType::Minus | TokenType::Amp | TokenType::Star
     ) {
         let op = scanner.next_token();
         let rhs = Box::new(parse_unary(scanner, depth)?);
