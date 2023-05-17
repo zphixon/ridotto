@@ -43,6 +43,10 @@ pub enum TokenType {
     Assert,
     /// impl
     Impl,
+    /// let
+    Let,
+    /// var
+    Var,
 
     /// _
     Underscore,
@@ -529,6 +533,8 @@ fn into_keyword(s: &str) -> Option<TokenType> {
         "const" => Some(TokenType::Const),
         "impl" => Some(TokenType::Impl),
         "class" => Some(TokenType::Class),
+        "let" => Some(TokenType::Let),
+        "var" => Some(TokenType::Var),
         _ => None,
     }
 }

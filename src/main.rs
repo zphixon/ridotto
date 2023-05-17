@@ -22,7 +22,11 @@ type Atype {
 }
 
 fn main(args: List[String]) {
-    Atype.Bjeif.Froosh {
+    let a = Atype.Bjeif.Froosh {
+        y: 32
+        b: 47
+    }
+    var b = Atype.Bjeif.Froosh {
         y: 32
         b: 47
     }

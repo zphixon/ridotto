@@ -85,6 +85,11 @@ pub enum Stmt<'src> {
     For {},
     Match {},
     Expr(Expr<'src>),
+    Binding {
+        mutable: bool,
+        name: NameLowercase<'src>,
+        value: Expr<'src>,
+    },
 }
 
 #[allow(dead_code)]
@@ -477,6 +482,18 @@ impl Debug for Stmt<'_> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
             Stmt::Expr(expr) => expr.fmt(f),
+
+            Stmt::Binding {
+                mutable,
+                name,
+                value,
+            } => f
+                .debug_struct("Binding")
+                .field("mutable", mutable)
+                .field("name", &name.lowercase.lexeme)
+                .field("value", value)
+                .finish(),
+
             _ => f.debug_struct("Todo").finish(),
         }
     }

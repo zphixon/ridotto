@@ -305,8 +305,26 @@ fn parse_function_body<'src>(
 #[ridotto_macros::parser_traced]
 fn parse_stmt<'src>(scanner: &mut Scanner<'src>, depth: usize) -> Result<Stmt<'src>, RidottoError> {
     match scanner.peek_token().type_ {
+        TokenType::Let | TokenType::Var => parse_binding(scanner, depth),
         _ => Ok(Stmt::Expr(parse_expr(scanner, depth)?)),
     }
+}
+
+#[ridotto_macros::parser_traced]
+fn parse_binding<'src>(
+    scanner: &mut Scanner<'src>,
+    depth: usize,
+) -> Result<Stmt<'src>, RidottoError> {
+    let mutable = scanner.peek_token().type_ == TokenType::Var;
+    scanner.next_token();
+    let name = consume_lower(scanner, depth)?;
+    consume(scanner, TokenType::Equal, depth)?;
+    let value = parse_expr(scanner, depth)?;
+    Ok(Stmt::Binding {
+        mutable,
+        name,
+        value,
+    })
 }
 
 #[ridotto_macros::parser_traced]
