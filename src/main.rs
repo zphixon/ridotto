@@ -9,12 +9,7 @@ mod scan;
 mod typeck;
 
 fn main() {
-    tracing::subscriber::set_global_default(
-        tracing_subscriber::fmt()
-            .with_max_level(tracing::Level::TRACE)
-            .finish(),
-    )
-    .unwrap();
+    tracing_subscriber::fmt::init();
 
     //let src = std::fs::read_to_string("sample.ridotto").unwrap();
 

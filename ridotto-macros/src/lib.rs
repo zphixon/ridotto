@@ -66,7 +66,7 @@ pub fn parser_traced(_: TokenStream, item: TokenStream) -> TokenStream {
         #fn_sig {
             trace(depth, "> ", #fn_name, scanner);
             let depth = depth + 1;
-            if depth > 50 {
+            if depth > 600 {
                 tracing::error!("recursion limit reached");
                 return Err(RidottoError::RecursionLimitReached {
                     pos: scanner.peek_token().pos
