@@ -166,6 +166,8 @@ pub struct TypeAnnotated<'src> {
 pub enum TypeExpr<'src> {
     /// Type
     Concrete { name: TypeName<'src> },
+    /// *Type
+    Ptr { pointee: Box<TypeExpr<'src>> },
     /// n, n=Type
     TypeVar {
         name: TypeName<'src>,
@@ -365,6 +367,8 @@ impl Debug for TypeExpr<'_> {
                 dbg.field("name", &name.name());
                 dbg.finish()
             }
+
+            TypeExpr::Ptr { pointee } => f.debug_tuple("Ptr").field(pointee).finish(),
 
             TypeExpr::TypeVar { name, default } => {
                 let mut dbg = f.debug_struct("TypeVar");

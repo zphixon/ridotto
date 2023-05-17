@@ -21,7 +21,7 @@ type Atype {
     Tomlinson
 }
 
-fn main(args: List[String]) {
+fn main(args: List[*String]) {
     let a = Atype.Bjeif.Froosh {
         y: 32
         b: 47

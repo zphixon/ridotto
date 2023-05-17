@@ -610,6 +610,11 @@ fn parse_type_expr<'src>(
         parse_fn_type_expr(scanner, depth)
     } else if scanner.peek_token().type_ == TokenType::LeftParen {
         parse_tuple_type_expr(scanner, depth)
+    } else if scanner.peek_token().type_ == TokenType::Star {
+        consume(scanner, TokenType::Star, depth)?;
+        Ok(TypeExpr::Ptr {
+            pointee: Box::new(parse_type_expr(scanner, depth)?),
+        })
     } else {
         parse_regular_type_expr(scanner, depth)
     }
