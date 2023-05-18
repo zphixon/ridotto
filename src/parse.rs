@@ -544,6 +544,16 @@ fn parse_call<'src>(scanner: &mut Scanner<'src>, depth: usize) -> Result<Expr<'s
                             TokenType::RightBrace,
                             parse_struct_field,
                         )?;
+
+                        if let Some((_, value)) = values.iter().enumerate().find(|(i, value)| {
+                            i + 1 != values.len() && matches!(value, StructField::Spread { .. })
+                        }) {
+                            let StructField::Spread { value } = value else {
+                                unreachable!();
+                            };
+                            return Err(RidottoError::spread_or_rest_not_last(value.token()));
+                        }
+
                         primary = Expr::StructInstantiate { type_name, values };
                     }
                     ExprToTypeName::Not(not) => break (Err(RidottoError::expected_type_name(not))),
@@ -559,11 +569,23 @@ fn parse_call<'src>(scanner: &mut Scanner<'src>, depth: usize) -> Result<Expr<'s
 fn parse_struct_field<'src>(
     scanner: &mut Scanner<'src>,
     depth: usize,
-) -> Result<(NameLowercase<'src>, Expr<'src>), RidottoError> {
+) -> Result<StructField<'src>, RidottoError> {
+    if scanner.peek_token().type_ == TokenType::Period {
+        consume(scanner, TokenType::Period, depth)?;
+        consume(scanner, TokenType::Period, depth)?;
+        return Ok(StructField::Spread {
+            value: parse_expr(scanner, depth)?,
+        });
+    }
+
     let name = consume_lower(scanner, depth)?;
-    consume(scanner, TokenType::Colon, depth)?;
-    let value = parse_expr(scanner, depth)?;
-    Ok((name, value))
+    if scanner.peek_token().type_ == TokenType::Colon {
+        consume(scanner, TokenType::Colon, depth)?;
+        let value = parse_expr(scanner, depth)?;
+        Ok(StructField::Named { name, value })
+    } else {
+        Ok(StructField::Shorthand { name })
+    }
 }
 
 #[ridotto_macros::parser_traced]

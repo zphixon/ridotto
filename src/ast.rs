@@ -114,7 +114,7 @@ pub enum Expr<'src> {
     },
     StructInstantiate {
         type_name: TypeName<'src>,
-        values: Vec<(NameLowercase<'src>, Expr<'src>)>,
+        values: Vec<StructField<'src>>,
     },
     TupleInstantiate {
         type_name: TypeName<'src>,
@@ -154,6 +154,19 @@ impl Expr<'_> {
             Expr::TypeName { type_ } => type_.uppercase,
         }
     }
+}
+
+pub enum StructField<'src> {
+    Named {
+        name: NameLowercase<'src>,
+        value: Expr<'src>,
+    },
+    Shorthand {
+        name: NameLowercase<'src>,
+    },
+    Spread {
+        value: Expr<'src>,
+    },
 }
 
 pub enum Identifier<'src> {
@@ -480,8 +493,18 @@ impl Debug for Expr<'_> {
 
             Expr::StructInstantiate { type_name, values } => {
                 let mut dbg = f.debug_struct(&format!("Instantiate {}", type_name.name()));
-                for (name, value) in values.iter() {
-                    dbg.field(name.lowercase.lexeme, value);
+                for field in values.iter() {
+                    match field {
+                        StructField::Named { name, value } => {
+                            dbg.field(name.lowercase.lexeme, value);
+                        }
+                        StructField::Shorthand { name } => {
+                            dbg.field(name.lowercase.lexeme, &());
+                        }
+                        StructField::Spread { value } => {
+                            dbg.field("(spread)", value);
+                        }
+                    }
                 }
                 dbg.finish()
             }

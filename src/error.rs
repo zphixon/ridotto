@@ -49,6 +49,10 @@ pub enum RidottoError {
         pos: Pos,
     },
 
+    SpreadOrRestNotLast {
+        pos: Pos,
+    },
+
     RecursionLimitReached {
         pos: Pos,
     },
@@ -96,6 +100,9 @@ impl RidottoError {
             Self::ExpectedTypeName { got, .. } => {
                 format!("Expected a type name, got {:?}", got)
             }
+            Self::SpreadOrRestNotLast { .. } => {
+                format!("Spread (or rest pattern) .. must be last field")
+            }
             Self::RecursionLimitReached { .. } => {
                 format!("Recursion limit reached")
             }
@@ -113,6 +120,7 @@ impl RidottoError {
             Self::ExpectedItem { pos, .. } => *pos,
             Self::ExpectedExpression { pos, .. } => *pos,
             Self::ExpectedTypeName { pos, .. } => *pos,
+            Self::SpreadOrRestNotLast { pos } => *pos,
             Self::RecursionLimitReached { pos, .. } => *pos,
         }
     }
@@ -128,6 +136,7 @@ impl RidottoError {
             Self::ExpectedItem { got, .. } => got,
             Self::ExpectedExpression { got, .. } => got,
             Self::ExpectedTypeName { got, .. } => got,
+            Self::SpreadOrRestNotLast { .. } => "",
             Self::RecursionLimitReached { .. } => "",
         }
     }
@@ -195,6 +204,10 @@ impl RidottoError {
             got: got.lexeme.into(),
             pos: got.pos,
         }
+    }
+
+    pub fn spread_or_rest_not_last(got: Token) -> Self {
+        Self::SpreadOrRestNotLast { pos: got.pos }
     }
 }
 

@@ -22,14 +22,16 @@ type Atype {
 }
 
 fn main(args: List[*String]) {
+    let d = X { y, ..args }
     let a = Atype.Bjeif.Froosh {
-        y: &32
+        y,
         b: *47
     }
     var b = &Atype.Bjeif.Froosh {
         y: 32
         b: 47
     }
+    //let x = Z { .. a, b }
 }
 "#;
 
