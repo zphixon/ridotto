@@ -159,7 +159,7 @@ fn parse_class<'src>(
         if scanner.peek_token().type_ == TokenType::LeftBrace {
             behaviors.push(MaybeAbstractFunction::Function(Function {
                 head,
-                body: parse_function_body(scanner, depth)?,
+                body: parse_brace_delimited_stmts(scanner, depth)?,
             }));
         } else {
             behaviors.push(MaybeAbstractFunction::AbstractFunction(head));
@@ -204,7 +204,7 @@ fn parse_function<'src>(
     depth: usize,
 ) -> Result<Function<'src>, RidottoError> {
     let head = parse_function_head(scanner, depth)?;
-    let body = parse_function_body(scanner, depth)?;
+    let body = parse_brace_delimited_stmts(scanner, depth)?;
     Ok(Function { head, body })
 }
 
@@ -289,7 +289,7 @@ fn parse_function_head<'src>(
 }
 
 #[ridotto_macros::parser_traced]
-fn parse_function_body<'src>(
+fn parse_brace_delimited_stmts<'src>(
     scanner: &mut Scanner<'src>,
     depth: usize,
 ) -> Result<Vec<Stmt<'src>>, RidottoError> {
@@ -306,6 +306,7 @@ fn parse_function_body<'src>(
 fn parse_stmt<'src>(scanner: &mut Scanner<'src>, depth: usize) -> Result<Stmt<'src>, RidottoError> {
     match scanner.peek_token().type_ {
         TokenType::Let | TokenType::Var => parse_binding(scanner, depth),
+        TokenType::Match => parse_match(scanner, depth),
         _ => Ok(Stmt::Expr(parse_expr(scanner, depth)?)),
     }
 }
@@ -325,6 +326,142 @@ fn parse_binding<'src>(
         name,
         value,
     })
+}
+
+#[ridotto_macros::parser_traced]
+fn parse_match<'src>(
+    scanner: &mut Scanner<'src>,
+    depth: usize,
+) -> Result<Stmt<'src>, RidottoError> {
+    consume(scanner, TokenType::Match, depth)?;
+    let discriminant = parse_expr(scanner, depth)?;
+    let branches = maybe_comma_delimited(
+        scanner,
+        depth,
+        TokenType::LeftBrace,
+        TokenType::RightBrace,
+        parse_match_branch,
+    )?;
+    Ok(Stmt::Match {
+        discriminant,
+        branches,
+    })
+}
+
+#[ridotto_macros::parser_traced]
+fn parse_match_branch<'src>(
+    scanner: &mut Scanner<'src>,
+    depth: usize,
+) -> Result<MatchBranch<'src>, RidottoError> {
+    let pattern = parse_pattern(scanner, depth)?;
+    let guard = if scanner.peek_token().type_ == TokenType::If {
+        consume(scanner, TokenType::If, depth)?;
+        Some(parse_expr(scanner, depth)?)
+    } else {
+        None
+    };
+    let body = parse_brace_delimited_stmts(scanner, depth)?;
+    Ok(MatchBranch {
+        pattern,
+        guard,
+        body,
+    })
+}
+
+#[ridotto_macros::parser_traced]
+fn parse_pattern<'src>(
+    scanner: &mut Scanner<'src>,
+    depth: usize,
+) -> Result<Pattern<'src>, RidottoError> {
+    let left = match scanner.peek_token().type_ {
+        TokenType::Underscore => {
+            consume(scanner, TokenType::Underscore, depth)?;
+            Ok(Pattern::Any)
+        }
+
+        TokenType::LowerIdent => Ok(Pattern::Binding {
+            name: consume_lower(scanner, depth)?,
+        }),
+
+        TokenType::UpperIdent => {
+            let type_name = parse_type_name(scanner, depth)?;
+            if scanner.peek_token().type_ == TokenType::LeftBrace {
+                let bindings = comma_delimited(
+                    scanner,
+                    depth,
+                    TokenType::LeftBrace,
+                    TokenType::RightBrace,
+                    parse_struct_field_pattern,
+                )?;
+                let partial = if scanner.peek_token().type_ == TokenType::Period {
+                    consume(scanner, TokenType::Period, depth)?;
+                    consume(scanner, TokenType::Period, depth)?;
+                    true
+                } else {
+                    false
+                };
+                Ok(Pattern::StructDestructure {
+                    type_name,
+                    partial,
+                    bindings,
+                })
+            } else if scanner.peek_token().type_ == TokenType::LeftParen {
+                let bindings = comma_delimited(
+                    scanner,
+                    depth,
+                    TokenType::LeftParen,
+                    TokenType::RightParen,
+                    parse_pattern,
+                )?;
+                let partial = if scanner.peek_token().type_ == TokenType::Period {
+                    consume(scanner, TokenType::Period, depth)?;
+                    consume(scanner, TokenType::Period, depth)?;
+                    true
+                } else {
+                    false
+                };
+                Ok(Pattern::TupleDestructure {
+                    type_name,
+                    partial,
+                    bindings,
+                })
+            } else {
+                Ok(Pattern::EnumVariant { type_name })
+            }
+        }
+
+        _ => Err(RidottoError::expected_pattern(scanner.peek_token())),
+    }?;
+
+    if scanner.peek_token().type_ == TokenType::Bar {
+        consume(scanner, TokenType::Bar, depth)?;
+        let left = Box::new(left);
+        let right = Box::new(parse_pattern(scanner, depth)?);
+        Ok(Pattern::Alternate { left, right })
+    } else {
+        Ok(left)
+    }
+}
+
+#[ridotto_macros::parser_traced]
+fn parse_struct_field_pattern<'src>(
+    scanner: &mut Scanner<'src>,
+    depth: usize,
+) -> Result<StructFieldPattern<'src>, RidottoError> {
+    if scanner.peek_token().type_ == TokenType::Period {
+        consume(scanner, TokenType::Period, depth)?;
+        consume(scanner, TokenType::Period, depth)?;
+        return Ok(StructFieldPattern::Rest);
+    }
+
+    let name = consume_lower(scanner, depth)?;
+    if scanner.peek_token().type_ == TokenType::Colon {
+        consume(scanner, TokenType::Colon, depth)?;
+        let value = parse_pattern(scanner, depth)?;
+        Ok(StructFieldPattern::Named { name, value })
+    } else {
+        Ok(StructFieldPattern::Shorthand { name })
+    }
 }
 
 #[ridotto_macros::parser_traced]

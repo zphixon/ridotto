@@ -47,6 +47,8 @@ pub enum TokenType {
     Let,
     /// var
     Var,
+    /// match
+    Match,
 
     /// _
     Underscore,
@@ -535,6 +537,7 @@ fn into_keyword(s: &str) -> Option<TokenType> {
         "class" => Some(TokenType::Class),
         "let" => Some(TokenType::Let),
         "var" => Some(TokenType::Var),
+        "match" => Some(TokenType::Match),
         _ => None,
     }
 }

@@ -87,13 +87,62 @@ pub struct Impl<'src> {
 pub enum Stmt<'src> {
     If {},
     For {},
-    Match {},
+    Match {
+        discriminant: Expr<'src>,
+        branches: Vec<MatchBranch<'src>>,
+    },
     Expr(Expr<'src>),
     Binding {
         mutable: bool,
         name: NameLowercase<'src>,
         value: Expr<'src>,
     },
+}
+
+#[allow(dead_code)]
+#[derive(Debug)]
+pub struct MatchBranch<'src> {
+    pub pattern: Pattern<'src>,
+    pub guard: Option<Expr<'src>>,
+    pub body: Vec<Stmt<'src>>,
+}
+
+#[derive(Debug)]
+pub enum Pattern<'src> {
+    Any,
+    Binding {
+        name: NameLowercase<'src>,
+    },
+    Alternate {
+        left: Box<Pattern<'src>>,
+        right: Box<Pattern<'src>>,
+    },
+    StructDestructure {
+        type_name: TypeName<'src>,
+        partial: bool,
+        bindings: Vec<StructFieldPattern<'src>>,
+    },
+    TupleDestructure {
+        type_name: TypeName<'src>,
+        partial: bool,
+        bindings: Vec<Pattern<'src>>,
+    },
+    EnumVariant {
+        type_name: TypeName<'src>,
+    },
+}
+
+#[derive(Debug)]
+#[allow(dead_code)]
+pub enum StructFieldPattern<'src> {
+    Named {
+        name: NameLowercase<'src>,
+        value: Pattern<'src>,
+    },
+    Shorthand {
+        name: NameLowercase<'src>,
+    },
+    Rest,
 }
 
 #[allow(dead_code)]

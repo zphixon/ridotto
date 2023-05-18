@@ -44,7 +44,7 @@ pub enum RidottoError {
         pos: Pos,
     },
 
-    ExpectedTypeName {
+    ExpectedPattern {
         got: String,
         pos: Pos,
     },
@@ -97,8 +97,8 @@ impl RidottoError {
             Self::ExpectedExpression { got, .. } => {
                 format!("Expected an expression, got {:?}", got)
             }
-            Self::ExpectedTypeName { got, .. } => {
-                format!("Expected a type name, got {:?}", got)
+            Self::ExpectedPattern { got, .. } => {
+                format!("Expected a pattern, got {:?}", got)
             }
             Self::SpreadOrRestNotLast { .. } => {
                 format!("Spread (or rest pattern) .. must be last field")
@@ -119,7 +119,7 @@ impl RidottoError {
             Self::AlreadySeenFunctionMod { pos, .. } => *pos,
             Self::ExpectedItem { pos, .. } => *pos,
             Self::ExpectedExpression { pos, .. } => *pos,
-            Self::ExpectedTypeName { pos, .. } => *pos,
+            Self::ExpectedPattern { pos, .. } => *pos,
             Self::SpreadOrRestNotLast { pos } => *pos,
             Self::RecursionLimitReached { pos, .. } => *pos,
         }
@@ -135,7 +135,7 @@ impl RidottoError {
             Self::AlreadySeenFunctionMod { got, .. } => got,
             Self::ExpectedItem { got, .. } => got,
             Self::ExpectedExpression { got, .. } => got,
-            Self::ExpectedTypeName { got, .. } => got,
+            Self::ExpectedPattern { got, .. } => got,
             Self::SpreadOrRestNotLast { .. } => "",
             Self::RecursionLimitReached { .. } => "",
         }
@@ -199,8 +199,8 @@ impl RidottoError {
         }
     }
 
-    pub fn expected_type_name(got: Token) -> Self {
-        Self::ExpectedTypeName {
+    pub fn expected_pattern(got: Token) -> Self {
+        Self::ExpectedPattern {
             got: got.lexeme.into(),
             pos: got.pos,
         }

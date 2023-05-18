@@ -31,6 +31,14 @@ fn main(args: List[*String]) {
         y: 32
         b: 47
     }
+    match b {
+        Atype.Bjief.Froosh { y, b: a, .. } if a == 47 {
+            bff
+        }
+        _ | Maybe { y, .. }  | Bool.False | Bool.True if y == 3 {
+            nopington
+        }
+    }
     //let x = Z { .. a, b }
 }
 "#;
