@@ -535,8 +535,8 @@ fn parse_call<'src>(scanner: &mut Scanner<'src>, depth: usize) -> Result<Expr<'s
 
             TokenType::LeftBrace => {
                 let name = Box::new(primary);
-                match ExprToTypeName::try_from(name.as_ref())? {
-                    ExprToTypeName::TypeName(type_name) => {
+                match ExprToTypeName::try_from(name.as_ref()) {
+                    Ok(ExprToTypeName::TypeName(type_name)) => {
                         let values = maybe_comma_delimited(
                             scanner,
                             depth,
@@ -556,7 +556,7 @@ fn parse_call<'src>(scanner: &mut Scanner<'src>, depth: usize) -> Result<Expr<'s
 
                         primary = Expr::StructInstantiate { type_name, values };
                     }
-                    ExprToTypeName::Not(not) => break (Err(RidottoError::expected_type_name(not))),
+                    Ok(ExprToTypeName::Not(_)) | Err(_) => break (Ok(*name)),
                 }
             }
 
