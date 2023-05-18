@@ -1,6 +1,6 @@
 use proc_macro::TokenStream;
 use quote::ToTokens;
-use syn::{FnArg, ItemFn, Pat, PatIdent, Type, TypePath, TypeReference};
+use syn::{FnArg, ItemFn, Pat, PatIdent, ReturnType, Type, TypePath, TypeReference};
 
 #[proc_macro_attribute]
 pub fn parser_traced(_: TokenStream, item: TokenStream) -> TokenStream {
@@ -58,6 +58,18 @@ pub fn parser_traced(_: TokenStream, item: TokenStream) -> TokenStream {
         panic!("Expected an argument called `scanner` with type `&mut Scanner`");
     }
 
+    if !match &input_fn.sig.output {
+        ReturnType::Type(_, type_) => match type_.as_ref() {
+            Type::Path(TypePath { path, .. }) => {
+                path.segments.len() == 1 && path.segments[0].ident == "Result"
+            }
+            _ => false,
+        },
+        _ => false,
+    } {
+        panic!("Expected to return a Result");
+    }
+
     let fn_sig = input_fn.sig.clone();
     let fn_name = input_fn.sig.ident.to_string();
     let fn_body = input_fn.block.clone();
@@ -72,9 +84,14 @@ pub fn parser_traced(_: TokenStream, item: TokenStream) -> TokenStream {
                     pos: scanner.peek_token().pos
                 });
             }
-            let result = #fn_body;
+            let mut inner = || #fn_body;
+            let result = inner();
             let depth = depth - 1;
-            trace(depth, "< ", #fn_name, scanner);
+            if result.is_ok() {
+                trace(depth, "< ", #fn_name, scanner);
+            } else {
+                trace(depth, "! ", #fn_name, scanner);
+            }
             result
         }
     };
