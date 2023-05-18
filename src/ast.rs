@@ -43,6 +43,7 @@ pub struct TypeVariant<'src> {
     pub inner: TypeDeclInnerOrAlias<'src>,
 }
 
+#[derive(Debug)]
 pub struct FunctionHead<'src> {
     pub builtin: bool,
     pub async_: bool,
@@ -54,11 +55,13 @@ pub struct FunctionHead<'src> {
     pub return_: Option<TypeExpr<'src>>,
 }
 
+#[derive(Debug)]
 pub struct Function<'src> {
     pub head: FunctionHead<'src>,
     pub body: Vec<Stmt<'src>>,
 }
 
+#[derive(Debug)]
 pub struct Class<'src> {
     pub name: NameUppercase<'src>,
     pub type_args: Vec<TypeExpr<'src>>,
@@ -79,6 +82,7 @@ pub struct Impl<'src> {
     pub behaviors: Vec<Function<'src>>,
 }
 
+#[derive(Debug)]
 #[allow(dead_code)]
 pub enum Stmt<'src> {
     If {},
@@ -157,6 +161,7 @@ pub enum Identifier<'src> {
     NameLowercase(NameLowercase<'src>),
 }
 
+#[derive(Debug)]
 pub struct TypeAnnotated<'src> {
     pub name: NameLowercase<'src>,
     pub type_: TypeExpr<'src>,
@@ -306,14 +311,24 @@ impl<'src> TryFrom<&Expr<'src>> for ExprToTypeName<'src> {
     }
 }
 
-#[derive(Debug)]
 pub struct NameUppercase<'src> {
     pub uppercase: Token<'src>,
 }
 
-#[derive(Debug)]
 pub struct NameLowercase<'src> {
     pub lowercase: Token<'src>,
+}
+
+impl Debug for NameUppercase<'_> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        self.uppercase.lexeme.fmt(f)
+    }
+}
+
+impl Debug for NameLowercase<'_> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        self.lowercase.lexeme.fmt(f)
+    }
 }
 
 impl Debug for TypeDecl<'_> {
@@ -432,77 +447,6 @@ impl Debug for TypeExprNoDefault<'_> {
     }
 }
 
-impl Debug for TypeAnnotated<'_> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("TypeAnnotated")
-            .field("name", &self.name.lowercase.lexeme)
-            .field("type_", &self.type_)
-            .finish()
-    }
-}
-
-impl Debug for Function<'_> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("Function")
-            .field("builtin", &self.head.builtin)
-            .field("async_", &self.head.async_)
-            .field("const_", &self.head.const_)
-            .field("export", &self.head.export)
-            .field("name", &self.head.name.lowercase.lexeme)
-            .field("type_args", &self.head.type_args)
-            .field("args", &self.head.args)
-            .field("return_", &self.head.return_)
-            .field("body", &self.body)
-            .finish()
-    }
-}
-
-impl Debug for FunctionHead<'_> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("FunctionHead")
-            .field("builtin", &self.builtin)
-            .field("async_", &self.async_)
-            .field("const_", &self.const_)
-            .field("export", &self.export)
-            .field("name", &self.name.lowercase.lexeme)
-            .field("type_args", &self.type_args)
-            .field("args", &self.args)
-            .field("return_", &self.return_)
-            .finish()
-    }
-}
-
-impl Debug for Class<'_> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("Class")
-            .field("name", &self.name.uppercase.lexeme)
-            .field("type_args", &self.type_args)
-            .field("behaviors", &self.behaviors)
-            .finish()
-    }
-}
-
-impl Debug for Stmt<'_> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Stmt::Expr(expr) => expr.fmt(f),
-
-            Stmt::Binding {
-                mutable,
-                name,
-                value,
-            } => f
-                .debug_struct("Binding")
-                .field("mutable", mutable)
-                .field("name", &name.lowercase.lexeme)
-                .field("value", value)
-                .finish(),
-
-            _ => f.debug_struct("Todo").finish(),
-        }
-    }
-}
-
 impl Debug for Expr<'_> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
@@ -558,8 +502,8 @@ impl Debug for Expr<'_> {
 impl Debug for Identifier<'_> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
-            Identifier::NameLowercase(lowercase) => lowercase.lowercase.lexeme.fmt(f),
-            Identifier::NameUppercase(uppercase) => uppercase.uppercase.lexeme.fmt(f),
+            Identifier::NameLowercase(lowercase) => lowercase.fmt(f),
+            Identifier::NameUppercase(uppercase) => uppercase.fmt(f),
         }
     }
 }
