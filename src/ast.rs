@@ -93,8 +93,7 @@ pub enum Stmt<'src> {
     },
     Expr(Expr<'src>),
     Binding {
-        mutable: bool,
-        name: NameLowercase<'src>,
+        pattern: Pattern<'src>,
         value: Expr<'src>,
     },
 }
@@ -111,6 +110,9 @@ pub struct MatchBranch<'src> {
 pub enum Pattern<'src> {
     Any,
     Binding {
+        name: NameLowercase<'src>,
+    },
+    MutableBinding {
         name: NameLowercase<'src>,
     },
     Alternate {
@@ -140,6 +142,9 @@ pub enum StructFieldPattern<'src> {
         value: Pattern<'src>,
     },
     Shorthand {
+        name: NameLowercase<'src>,
+    },
+    MutableShorthand {
         name: NameLowercase<'src>,
     },
     Rest,

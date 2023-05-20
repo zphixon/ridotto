@@ -27,7 +27,7 @@ fn main(args: List[*String]) {
         y,
         b: *47
     }
-    var b = &Atype.Bjeif.Froosh {
+    let mut b = &Atype.Bjeif.Froosh {
         y: 32
         b: 47
     }

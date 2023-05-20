@@ -45,8 +45,8 @@ pub enum TokenType {
     Impl,
     /// let
     Let,
-    /// var
-    Var,
+    /// mut
+    Mut,
     /// match
     Match,
 
@@ -536,7 +536,7 @@ fn into_keyword(s: &str) -> Option<TokenType> {
         "impl" => Some(TokenType::Impl),
         "class" => Some(TokenType::Class),
         "let" => Some(TokenType::Let),
-        "var" => Some(TokenType::Var),
+        "mut" => Some(TokenType::Mut),
         "match" => Some(TokenType::Match),
         _ => None,
     }

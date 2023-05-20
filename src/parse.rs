@@ -305,7 +305,7 @@ fn parse_brace_delimited_stmts<'src>(
 #[ridotto_macros::parser_traced]
 fn parse_stmt<'src>(scanner: &mut Scanner<'src>, depth: usize) -> Result<Stmt<'src>, RidottoError> {
     match scanner.peek_token().type_ {
-        TokenType::Let | TokenType::Var => parse_binding(scanner, depth),
+        TokenType::Let => parse_binding(scanner, depth),
         TokenType::Match => parse_match(scanner, depth),
         _ => Ok(Stmt::Expr(parse_expr(scanner, depth)?)),
     }
@@ -316,16 +316,11 @@ fn parse_binding<'src>(
     scanner: &mut Scanner<'src>,
     depth: usize,
 ) -> Result<Stmt<'src>, RidottoError> {
-    let mutable = scanner.peek_token().type_ == TokenType::Var;
-    scanner.next_token();
-    let name = consume_lower(scanner, depth)?;
+    consume(scanner, TokenType::Let, depth)?;
+    let pattern = parse_pattern(scanner, depth)?;
     consume(scanner, TokenType::Equal, depth)?;
     let value = parse_expr(scanner, depth)?;
-    Ok(Stmt::Binding {
-        mutable,
-        name,
-        value,
-    })
+    Ok(Stmt::Binding { pattern, value })
 }
 
 #[ridotto_macros::parser_traced]
@@ -382,6 +377,13 @@ fn parse_pattern<'src>(
         TokenType::LowerIdent => Ok(Pattern::Binding {
             name: consume_lower(scanner, depth)?,
         }),
+
+        TokenType::Mut => {
+            consume(scanner, TokenType::Mut, depth)?;
+            Ok(Pattern::MutableBinding {
+                name: consume_lower(scanner, depth)?,
+            })
+        }
 
         TokenType::UpperIdent => {
             let type_name = parse_type_name(scanner, depth)?;
@@ -493,6 +495,7 @@ fn parse_logic_and<'src>(
     depth: usize,
 ) -> Result<Expr<'src>, RidottoError> {
     let mut equality = parse_equality(scanner, depth)?;
+
     loop {
         if scanner.peek_token().type_ == TokenType::DoubleAmp {
             let lhs = Box::new(equality);
