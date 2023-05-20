@@ -355,7 +355,9 @@ fn parse_match_branch<'src>(
     } else {
         None
     };
-    let body = parse_brace_delimited_stmts(scanner, depth)?;
+    consume(scanner, TokenType::Equal, depth)?;
+    consume(scanner, TokenType::RightAngle, depth)?;
+    let body = parse_expr(scanner, depth)?;
     Ok(MatchBranch {
         pattern,
         guard,
@@ -372,6 +374,17 @@ fn parse_pattern<'src>(
         TokenType::Underscore => {
             consume(scanner, TokenType::Underscore, depth)?;
             Ok(Pattern::Any)
+        }
+
+        TokenType::LeftParen => {
+            let bindings = comma_delimited(
+                scanner,
+                depth,
+                TokenType::LeftParen,
+                TokenType::RightParen,
+                parse_pattern,
+            )?;
+            Ok(Pattern::Tuple { bindings })
         }
 
         TokenType::LowerIdent => Ok(Pattern::Binding {
@@ -737,15 +750,41 @@ fn parse_primary<'src>(
         TokenType::LowerIdent => Ok(Expr::Variable {
             variable: consume_lower(scanner, depth)?,
         }),
+
         TokenType::UpperIdent => Ok(Expr::TypeName {
             type_: consume_upper(scanner, depth)?,
         }),
+
         TokenType::Int(int) => Ok(Expr::Literal {
             literal: consume(scanner, TokenType::Int(int), depth)?,
         }),
+
         TokenType::Float(float) => Ok(Expr::Literal {
             literal: consume(scanner, TokenType::Float(float), depth)?,
         }),
+
+        TokenType::LeftBrace => {
+            let stmts = parse_brace_delimited_stmts(scanner, depth)?;
+            Ok(Expr::Block { stmts })
+        }
+
+        TokenType::LeftParen => {
+            let mut values = comma_delimited(
+                scanner,
+                depth,
+                TokenType::LeftParen,
+                TokenType::RightParen,
+                parse_expr,
+            )?;
+            if values.len() == 1 {
+                Ok(Expr::Paren {
+                    expr: Box::new(values.pop().unwrap()),
+                })
+            } else {
+                Ok(Expr::Tuple { values })
+            }
+        }
+
         _ => Err(RidottoError::expected_expression(scanner.peek_token())),
     }
 }

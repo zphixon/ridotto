@@ -32,10 +32,12 @@ fn main(args: List[*String]) {
         b: 47
     }
     match b {
-        Atype.Bjief.Froosh { y, b: a, .. } if a == 47 {
+        Atype.Bjief.Froosh { y, b: a, .. } if a == 47 => {
             bff
         }
-        _ | Maybe { y, .. }  | Bool.False | Bool.True if y == 3 {
+        _ | Maybe { y, .. }  | Bool.False | Bool.True if y == 3 => {
+            let x = (y + b)
+            let (x, y) = (y, x)
             nopington
         }
     }

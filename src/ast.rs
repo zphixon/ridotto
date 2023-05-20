@@ -98,12 +98,24 @@ pub enum Stmt<'src> {
     },
 }
 
+impl Stmt<'_> {
+    fn token(&self) -> Token {
+        use Stmt::*;
+        match self {
+            If {} | For {} => todo!(),
+            Match { discriminant, .. } => discriminant.token(),
+            Expr(expr) => expr.token(),
+            Binding { value, .. } => value.token(), // pattern
+        }
+    }
+}
+
 #[allow(dead_code)]
 #[derive(Debug)]
 pub struct MatchBranch<'src> {
     pub pattern: Pattern<'src>,
     pub guard: Option<Expr<'src>>,
-    pub body: Vec<Stmt<'src>>,
+    pub body: Expr<'src>,
 }
 
 #[derive(Debug)]
@@ -129,6 +141,9 @@ pub enum Pattern<'src> {
         partial: bool,
         bindings: Vec<Pattern<'src>>,
     },
+    Tuple {
+        bindings: Vec<Pattern<'src>>,
+    },
     EnumVariant {
         type_name: TypeName<'src>,
     },
@@ -152,6 +167,9 @@ pub enum StructFieldPattern<'src> {
 
 #[allow(dead_code)]
 pub enum Expr<'src> {
+    Block {
+        stmts: Vec<Stmt<'src>>,
+    },
     Literal {
         literal: Token<'src>,
     },
@@ -174,6 +192,9 @@ pub enum Expr<'src> {
         type_name: TypeName<'src>,
         values: Vec<Expr<'src>>,
     },
+    Tuple {
+        values: Vec<Expr<'src>>,
+    },
     Unary {
         op: Token<'src>,
         rhs: Box<Expr<'src>>,
@@ -194,6 +215,10 @@ pub enum Expr<'src> {
 impl Expr<'_> {
     pub(crate) fn token(&self) -> Token {
         match self {
+            Expr::Block { stmts } => stmts
+                .get(0)
+                .map(|stmt| stmt.token())
+                .unwrap_or_else(|| Token::default()),
             Expr::Binary { lhs, .. } => lhs.token(),
             Expr::Call { callee, .. } => callee.token(),
             Expr::Literal { literal } => *literal,
@@ -203,6 +228,10 @@ impl Expr<'_> {
             Expr::TupleInstantiate {
                 type_name: name, ..
             } => name.token(),
+            Expr::Tuple { values } => values
+                .get(0)
+                .map(|value| value.token())
+                .unwrap_or_else(|| Token::default()),
             Expr::Unary { op, .. } => *op,
             Expr::Variable { variable } => variable.lowercase,
             Expr::TypeName { type_ } => type_.uppercase,
@@ -571,7 +600,17 @@ impl Debug for Expr<'_> {
                 dbg.finish()
             }
 
-            _ => f.debug_tuple("Todo").finish(),
+            Expr::Block { stmts } => f.debug_struct("Block").field("body", stmts).finish(),
+
+            Expr::Paren { expr } => f.debug_tuple("Paren").field(expr).finish(),
+
+            Expr::Tuple { values } => {
+                let mut dbg = f.debug_tuple("Tuple");
+                for value in values.iter() {
+                    dbg.field(value);
+                }
+                dbg.finish()
+            }
         }
     }
 }
