@@ -682,8 +682,13 @@ fn parse_call<'src>(scanner: &mut Scanner<'src>, depth: usize) -> Result<Expr<'s
             TokenType::Period => {
                 consume(scanner, TokenType::Period, depth)?;
                 let object = Box::new(primary);
-                let name = consume_ident(scanner, depth)?;
-                primary = Expr::GetFrom { object, name };
+                if let TokenType::Int(int) = scanner.peek_token().type_ {
+                    let index = consume(scanner, TokenType::Int(int), depth)?;
+                    primary = Expr::TupleIndex { object, index }
+                } else {
+                    let name = consume_ident(scanner, depth)?;
+                    primary = Expr::GetFrom { object, name };
+                }
             }
 
             TokenType::LeftBrace => {
@@ -755,12 +760,12 @@ fn parse_primary<'src>(
             type_: consume_upper(scanner, depth)?,
         }),
 
-        TokenType::Int(int) => Ok(Expr::Literal {
-            literal: consume(scanner, TokenType::Int(int), depth)?,
-        }),
-
-        TokenType::Float(float) => Ok(Expr::Literal {
-            literal: consume(scanner, TokenType::Float(float), depth)?,
+        literal @ (TokenType::Int(_)
+        | TokenType::Float(_)
+        | TokenType::True
+        | TokenType::False
+        | TokenType::String) => Ok(Expr::Literal {
+            literal: consume(scanner, literal, depth)?,
         }),
 
         TokenType::LeftBrace => {

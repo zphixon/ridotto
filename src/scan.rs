@@ -116,7 +116,6 @@ pub enum TokenType {
     /// Type name, e.g. `Hello`
     UpperIdent,
 
-    #[allow(dead_code)]
     String,
     True,
     False,
@@ -124,6 +123,7 @@ pub enum TokenType {
     Int(i64),
 
     Unknown,
+    UnterminatedString,
 
     Eof,
 }
@@ -422,6 +422,8 @@ impl<'src> Scanner<'src> {
 
             "0" | "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9" => self.number(),
 
+            quote @ "\"" | quote @ "'" => self.string(quote),
+
             _ => {
                 // TODO strings
                 self.identifier_or_keyword()
@@ -450,6 +452,28 @@ impl<'src> Scanner<'src> {
             ""
         } else {
             &self.source[self.start_byte..self.start_byte + self.len_bytes]
+        }
+    }
+
+    fn string(&mut self, quote: &str) -> TokenType {
+        loop {
+            match self.peek_grapheme() {
+                "\\" => {
+                    self.next_grapheme();
+                }
+
+                char if char == quote => {
+                    self.next_grapheme();
+                    break (TokenType::String);
+                }
+
+                "" => {
+                    break (TokenType::UnterminatedString);
+                }
+
+                _ => {}
+            }
+            self.next_grapheme();
         }
     }
 

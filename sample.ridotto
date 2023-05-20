@@ -72,7 +72,7 @@ type Option[t] {
 
     fn unwrap(self: Self) -> t {
         match self {
-            Option.Some { value } => value,
+            Option.Some(value) => value,
             Option.None => panic("called unwrap on None value")
         }
     }
@@ -85,12 +85,12 @@ class Monad[a, b] {
 
 impl Monad[a, b] for Option[a] {
     fn wrap(value: a) -> Option[a] {
-        Option.Some { value }
+        Option.Some(value)
     }
 
     fn map(self: Option[a], f: fn(a) -> Option[b]) -> Option[b] {
         match self {
-            Option.Some { value } => f(value)
+            Option.Some(value) => f(value)
             Option.None => Option.None
         }
     }
@@ -103,13 +103,13 @@ type Result[t, e] {
 
 impl Monad[a, b] for Result[a, e] {
     fn wrap(value: a) -> Result[a, e] {
-        Result.Ok { value }
+        Result.Ok(value)
     }
 
     fn map(self: Result[a, e], f: fn(a) -> Result[b, e]) -> Result[b, e] {
         match self {
-            Result.Ok { value } => f(value)
-            Result.Err { err } => Result.Err { err }
+            Result.Ok(value) => f(value)
+            Result.Err(err) => Result.Err(err)
         }
     }
 }
@@ -133,7 +133,7 @@ type Map[t, u] {
 impl Iterator[u] for Map[t, u] {
     fn next(self: Map[t, u]) -> Option[u] {
         match self.iter.next() {
-            Some { some } => Some { (self.xform)(some) }
+            Some(some) => Some((self.xform)(some))
             None => None
         }
     }

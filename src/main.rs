@@ -11,8 +11,6 @@ mod typeck;
 fn main() {
     tracing_subscriber::fmt::init();
 
-    //let src = std::fs::read_to_string("sample.ridotto").unwrap();
-
     let src = r#"
 type Atype {
     Michael {
@@ -44,6 +42,8 @@ fn main(args: List[*String]) {
     //let x = Z { .. a, b }
 }
 "#;
+
+    let src = std::fs::read_to_string("sample.ridotto").unwrap();
 
     let mut scanner = Scanner::new(&src);
     let mut tokens = vec![];

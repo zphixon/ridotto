@@ -180,6 +180,11 @@ pub enum Expr<'src> {
         object: Box<Expr<'src>>,
         name: Identifier<'src>,
     },
+    //ArrayIndex
+    TupleIndex {
+        object: Box<Expr<'src>>,
+        index: Token<'src>,
+    },
     Call {
         callee: Box<Expr<'src>>,
         args: Vec<Expr<'src>>,
@@ -224,6 +229,7 @@ impl Expr<'_> {
             Expr::Literal { literal } => *literal,
             Expr::Paren { expr } => expr.token(),
             Expr::GetFrom { object, .. } => object.token(),
+            Expr::TupleIndex { object, .. } => object.token(),
             Expr::StructInstantiate { type_name, .. } => type_name.token(),
             Expr::TupleInstantiate {
                 type_name: name, ..
@@ -567,6 +573,12 @@ impl Debug for Expr<'_> {
                 f.debug_tuple("GetFrom").field(object).field(name).finish()
             }
 
+            Expr::TupleIndex { object, index } => f
+                .debug_tuple("TupleIndex")
+                .field(&index.lexeme)
+                .field(object)
+                .finish(),
+
             Expr::TypeName { type_ } => f
                 .debug_tuple("TypeName")
                 .field(&type_.uppercase.lexeme)
@@ -582,7 +594,7 @@ impl Debug for Expr<'_> {
                             dbg.field(name.lowercase.lexeme, value);
                         }
                         StructField::Shorthand { name } => {
-                            dbg.field(name.lowercase.lexeme, &());
+                            dbg.field(name.lowercase.lexeme, &name.lowercase.lexeme);
                         }
                         StructField::Spread { value } => {
                             dbg.field("(spread)", value);
