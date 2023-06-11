@@ -306,7 +306,6 @@ fn parse_brace_delimited_stmts<'src>(
 fn parse_stmt<'src>(scanner: &mut Scanner<'src>, depth: usize) -> Result<Stmt<'src>, RidottoError> {
     match scanner.peek_token().type_ {
         TokenType::Let => parse_binding(scanner, depth),
-        TokenType::Match => parse_match(scanner, depth),
         _ => Ok(Stmt::Expr(parse_expr(scanner, depth)?)),
     }
 }
@@ -327,9 +326,9 @@ fn parse_binding<'src>(
 fn parse_match<'src>(
     scanner: &mut Scanner<'src>,
     depth: usize,
-) -> Result<Stmt<'src>, RidottoError> {
+) -> Result<Expr<'src>, RidottoError> {
     consume(scanner, TokenType::Match, depth)?;
-    let discriminant = parse_expr(scanner, depth)?;
+    let discriminant = Box::new(parse_expr(scanner, depth)?);
     let branches = maybe_comma_delimited(
         scanner,
         depth,
@@ -337,7 +336,7 @@ fn parse_match<'src>(
         TokenType::RightBrace,
         parse_match_branch,
     )?;
-    Ok(Stmt::Match {
+    Ok(Expr::Match {
         discriminant,
         branches,
     })
@@ -480,8 +479,32 @@ fn parse_struct_field_pattern<'src>(
 }
 
 #[ridotto_macros::parser_traced]
+fn parse_if<'src>(scanner: &mut Scanner<'src>, depth: usize) -> Result<Expr<'src>, RidottoError> {
+    consume(scanner, TokenType::If, depth)?;
+    let cond = Box::new(parse_expr(scanner, depth)?);
+    let block = parse_brace_delimited_stmts(scanner, depth)?;
+
+    let else_block = if scanner.peek_token().type_ == TokenType::Else {
+        consume(scanner, TokenType::Else, depth)?;
+        Some(parse_brace_delimited_stmts(scanner, depth)?)
+    } else {
+        None
+    };
+
+    Ok(Expr::If {
+        cond,
+        block,
+        else_block,
+    })
+}
+
+#[ridotto_macros::parser_traced]
 fn parse_expr<'src>(scanner: &mut Scanner<'src>, depth: usize) -> Result<Expr<'src>, RidottoError> {
-    parse_logic_or(scanner, depth)
+    match scanner.peek_token().type_ {
+        TokenType::If => parse_if(scanner, depth),
+        TokenType::Match => parse_match(scanner, depth),
+        _ => parse_logic_or(scanner, depth),
+    }
 }
 
 #[ridotto_macros::parser_traced]
@@ -816,8 +839,8 @@ fn parse_type_expr<'src>(
         parse_fn_type_expr(scanner, depth)
     } else if scanner.peek_token().type_ == TokenType::LeftParen {
         parse_tuple_type_expr(scanner, depth)
-    } else if scanner.peek_token().type_ == TokenType::Star {
-        consume(scanner, TokenType::Star, depth)?;
+    } else if scanner.peek_token().type_ == TokenType::Amp {
+        consume(scanner, TokenType::Amp, depth)?;
         Ok(TypeExpr::Ptr {
             pointee: Box::new(parse_type_expr(scanner, depth)?),
         })

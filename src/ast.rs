@@ -85,12 +85,6 @@ pub struct Impl<'src> {
 #[derive(Debug)]
 #[allow(dead_code)]
 pub enum Stmt<'src> {
-    If {},
-    For {},
-    Match {
-        discriminant: Expr<'src>,
-        branches: Vec<MatchBranch<'src>>,
-    },
     Expr(Expr<'src>),
     Binding {
         pattern: Pattern<'src>,
@@ -102,8 +96,6 @@ impl Stmt<'_> {
     fn token(&self) -> Token {
         use Stmt::*;
         match self {
-            If {} | For {} => todo!(),
-            Match { discriminant, .. } => discriminant.token(),
             Expr(expr) => expr.token(),
             Binding { value, .. } => value.token(), // pattern
         }
@@ -215,6 +207,16 @@ pub enum Expr<'src> {
     TypeName {
         type_: NameUppercase<'src>,
     },
+    If {
+        cond: Box<Expr<'src>>,
+        block: Vec<Stmt<'src>>,
+        else_block: Option<Vec<Stmt<'src>>>,
+    },
+    For {},
+    Match {
+        discriminant: Box<Expr<'src>>,
+        branches: Vec<MatchBranch<'src>>,
+    },
 }
 
 impl Expr<'_> {
@@ -241,6 +243,9 @@ impl Expr<'_> {
             Expr::Unary { op, .. } => *op,
             Expr::Variable { variable } => variable.lowercase,
             Expr::TypeName { type_ } => type_.uppercase,
+            Expr::If { cond, .. } => cond.token(),
+            Expr::For {} => todo!(),
+            Expr::Match { discriminant, .. } => discriminant.token(),
         }
     }
 }
@@ -623,6 +628,31 @@ impl Debug for Expr<'_> {
                 }
                 dbg.finish()
             }
+
+            Expr::If {
+                cond,
+                block,
+                else_block,
+            } => {
+                let mut dbg = f.debug_struct("If");
+                dbg.field("cond", &cond);
+                dbg.field("block", &block);
+                if let Some(else_block) = else_block.as_ref() {
+                    dbg.field("else", else_block);
+                }
+                dbg.finish()
+            }
+
+            Expr::For {} => f.debug_struct("For").finish(),
+
+            Expr::Match {
+                discriminant,
+                branches,
+            } => f
+                .debug_struct("Match")
+                .field("discriminant", &discriminant)
+                .field("branches", &branches)
+                .finish(),
         }
     }
 }

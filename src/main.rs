@@ -19,7 +19,7 @@ type Atype {
     Tomlinson
 }
 
-fn main(args: List[*String]) {
+fn main(args: List[&String]) {
     let d = X { y, ..args }
     let a = Atype.Bjeif.Froosh {
         y,
