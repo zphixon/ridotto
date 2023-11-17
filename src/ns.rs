@@ -1,6 +1,4 @@
-#![allow(unused_variables, dead_code, unused_mut)]
-
-use crate::{ast::Item, error::RidottoError, scan::Token};
+use crate::{ast::*, error::RidottoError, scan::Token};
 use fnv::FnvHashMap;
 use slotmap::{DefaultKey, SlotMap};
 
@@ -23,7 +21,6 @@ pub enum VariableLocation {
 #[derive(Default)]
 struct Namespace<'src> {
     parent: Option<DefaultKey>,
-    // TODO use StringPtr
     names: FnvHashMap<Token<'src>, VariableLocation>,
     children: Vec<DefaultKey>,
     name: Token<'src>,
@@ -243,7 +240,7 @@ impl<'src> NamespaceRepository<'src> {
 
     fn hmm_rec(&self, indent: usize, ns: DefaultKey) {
         print!(
-            "{:<15}",
+            "{:<35}",
             format!("{} {}", self.ns(ns).name.lexeme, self.ns(ns).name.pos)
         );
         print!("{:>indent$}[", "");
@@ -273,307 +270,235 @@ impl std::fmt::Debug for NamespaceRepository<'_> {
     }
 }
 
-pub fn analyze_ns<'src>(ast: &[Item<'src>]) -> Result<NamespaceRepository<'src>, RidottoError> {
+fn err(variable: Token) -> Result<(), RidottoError> {
+    return Err(RidottoError::unknown_variable(variable));
+}
+
+pub fn analyze_ns<'src>(
+    ast: &'src [Item<'src>],
+) -> Result<NamespaceRepository<'src>, RidottoError> {
     let mut repo = NamespaceRepository::new();
 
-    for stmt in ast {
+    for item in ast {
         let global = repo.global_key();
-        //analyze_ns_stmt(&mut repo, global, stmt)?;
+        analyze_ns_item(&mut repo, global, item)?;
     }
 
     Ok(repo)
 }
 
-fn err(variable: Token) -> Result<(), RidottoError> {
-    todo!("unknown variable '{}'", variable.lexeme);
-    //return Err(make_error!(SyntaxError)
-    //    .msg_string(format!("unknown variable '{}'", variable.lexeme))
-    //    .pos(variable.pos));
+fn analyze_ns_item<'src>(
+    repo: &mut NamespaceRepository<'src>,
+    ns: DefaultKey,
+    item: &'src Item<'src>,
+) -> Result<(), RidottoError> {
+    match item {
+        Item::ItemFunction(func) => {
+            repo.new_variable(ns, func.head.name.lowercase)?;
+            let inner_ns = repo.with_parent(ns, func.head.name.lowercase);
+            for arg in func.head.args.iter() {
+                repo.new_variable(inner_ns, arg.name.lowercase)?;
+            }
+            for stmt in func.body.iter() {
+                analyze_ns_stmt(repo, inner_ns, stmt)?;
+            }
+        }
+
+        _ => {},
+    }
+
+    Ok(())
 }
 
-//fn analyze_ns_stmt<'src>(
-//    repo: &mut NamespaceRepository<'src>,
-//    ns: DefaultKey,
-//    stmt: &'src Stmt<'src>,
-//) -> Result<(), RidottoError> {
-//    match stmt {
-//        Stmt::Expr { expr, .. } => {
-//            tracing::trace!("analyze stmt::expr");
-//            analyze_ns_expr(repo, ns, expr)?;
-//        }
-//
-//        Stmt::Block { do_, body, .. } => {
-//            tracing::trace!("analyze stmt::block");
-//            let child = repo.with_parent(ns, *do_);
-//            for stmt in body {
-//                analyze_ns_stmt(repo, child, stmt)?;
-//            }
-//        }
-//
-//        Stmt::Declaration { name, value, .. } => {
-//            tracing::trace!("analyze stmt::declaration");
-//            analyze_ns_expr(repo, ns, value)?;
-//            repo.new_variable(ns, *name)?;
-//        }
-//
-//        Stmt::Assignment { lval, rval, .. } => {
-//            tracing::trace!("analyze stmt::assignment");
-//            if let Expr::Variable { variable } = lval {
-//                if repo.find(ns, *variable).is_none() {
-//                    return err(*variable);
-//                }
-//            } else {
-//                analyze_ns_expr(repo, ns, lval)?;
-//            }
-//
-//            analyze_ns_expr(repo, ns, rval)?;
-//        }
-//
-//        Stmt::If {
-//            if_,
-//            cond,
-//            then_block,
-//            else_,
-//            else_block,
-//            ..
-//        } => {
-//            tracing::trace!("analyze stmt::if");
-//            analyze_ns_expr(repo, ns, cond)?;
-//
-//            let then_child = repo.with_parent(ns, *if_);
-//            for stmt in then_block {
-//                analyze_ns_stmt(repo, then_child, stmt)?;
-//            }
-//
-//            if let (Some(else_), Some(else_block)) = (else_, else_block) {
-//                let else_child = repo.with_parent(ns, *else_);
-//                for stmt in else_block {
-//                    analyze_ns_stmt(repo, else_child, stmt)?;
-//                }
-//            }
-//        }
-//
-//        Stmt::While {
-//            while_, cond, body, ..
-//        } => {
-//            tracing::trace!("analyze stmt::while");
-//            analyze_ns_expr(repo, ns, cond)?;
-//
-//            let child = repo.with_parent(ns, *while_);
-//            for stmt in body {
-//                analyze_ns_stmt(repo, child, stmt)?;
-//            }
-//        }
-//
-//        Stmt::For {
-//            for_,
-//            init,
-//            cond,
-//            name,
-//            inc_expr,
-//            do_,
-//            body,
-//            ..
-//        } => {
-//            tracing::trace!("analyze stmt::for");
-//            let child = repo.with_parent(ns, *for_);
-//            analyze_ns_stmt(repo, child, init)?;
-//            analyze_ns_expr(repo, child, cond)?;
-//            if repo.find(child, *name).is_none() {
-//                return err(*name);
-//            }
-//            analyze_ns_expr(repo, child, inc_expr)?;
-//            let inner = repo.with_parent(child, *do_);
-//            for stmt in body {
-//                analyze_ns_stmt(repo, inner, stmt)?;
-//            }
-//        }
-//
-//        Stmt::ForEach {
-//            for_,
-//            item,
-//            iter,
-//            body,
-//            ..
-//        } => {
-//            tracing::trace!("analyze stmt::foreach");
-//            if repo.find(ns, *iter).is_none() {
-//                return err(*iter);
-//            }
-//
-//            let child = repo.with_parent(ns, *for_);
-//            repo.new_variable(child, *item)?;
-//            for stmt in body {
-//                analyze_ns_stmt(repo, child, stmt)?;
-//            }
-//        }
-//
-//        Stmt::Fn {
-//            name, args, body, ..
-//        } => {
-//            repo.new_variable(ns, *name)?;
-//            let body_ns = repo.with_parent_captures(ns, *name);
-//            for arg in args {
-//                repo.new_variable(body_ns, *arg)?;
-//            }
-//            for stmt in body {
-//                analyze_ns_stmt(repo, body_ns, stmt)?;
-//            }
-//        }
-//
-//        Stmt::Break { .. } => {}
-//
-//        Stmt::Continue { .. } => {}
-//
-//        Stmt::Return { value, .. } => {
-//            if let Some(value) = value {
-//                analyze_ns_expr(repo, ns, value)?;
-//            }
-//        }
-//
-//        Stmt::Assert { value, .. } => {
-//            analyze_ns_expr(repo, ns, value)?;
-//        }
-//
-//        Stmt::Data {
-//            name,
-//            methods,
-//            fields,
-//        } => {
-//            repo.new_variable(ns, *name)?;
-//            let data_ns = repo.with_parent(ns, *name);
-//            for field in fields {
-//                analyze_ns_stmt(repo, data_ns, field)?;
-//            }
-//            for method in methods {
-//                let method_ns = repo.with_parent(data_ns, method.token());
-//                analyze_ns_stmt(repo, method_ns, method)?;
-//            }
-//        }
-//    }
-//
-//    Ok(())
-//}
-//
-//fn analyze_ns_expr<'src>(
-//    repo: &mut NamespaceRepository<'src>,
-//    ns: DefaultKey,
-//    expr: &'src Expr<'src>,
-//) -> Result<(), RidottoError> {
-//    match expr {
-//        Expr::Literal { .. } => {}
-//
-//        Expr::Paren { expr, .. } => {
-//            tracing::trace!("analyze expr::paren");
-//            analyze_ns_expr(repo, ns, expr)?;
-//        }
-//
-//        Expr::Variable { variable } => {
-//            tracing::trace!("analyze expr::variable");
-//            if repo.find(ns, *variable).is_none() {
-//                return Err(make_error!(SyntaxError)
-//                    .msg_string(format!("unknown variable '{}'", variable.lexeme))
-//                    .pos(variable.pos));
-//            }
-//        }
-//
-//        Expr::Unary { rhs, .. } => {
-//            tracing::trace!("analyze expr::unary");
-//            analyze_ns_expr(repo, ns, rhs)?;
-//        }
-//
-//        Expr::Binary { lhs, rhs, .. } => {
-//            tracing::trace!("analyze expr::binary");
-//            analyze_ns_expr(repo, ns, lhs)?;
-//            analyze_ns_expr(repo, ns, rhs)?;
-//        }
-//
-//        Expr::Logical { lhs, rhs, .. } => {
-//            tracing::trace!("analyze expr::logical");
-//            analyze_ns_expr(repo, ns, lhs)?;
-//            analyze_ns_expr(repo, ns, rhs)?;
-//        }
-//
-//        Expr::Call { callee, args, .. } => {
-//            tracing::trace!("analyze expr::call");
-//            analyze_ns_expr(repo, ns, callee)?;
-//            for arg in args {
-//                analyze_ns_expr(repo, ns, arg)?;
-//            }
-//        }
-//
-//        // Expr::New { name, args } => {}
-//        Expr::Get { object, .. } => {
-//            analyze_ns_expr(repo, ns, object)?;
-//        }
-//
-//        Expr::Index { object, index, .. } => {
-//            analyze_ns_expr(repo, ns, object)?;
-//            analyze_ns_expr(repo, ns, index)?;
-//        }
-//
-//        Expr::Fn {
-//            fn_, args, body, ..
-//        } => {
-//            tracing::trace!("analyze expr::fn");
-//            let child = repo.with_parent_captures(ns, *fn_);
-//            for arg in args {
-//                repo.new_variable(child, *arg)?;
-//            }
-//            for stmt in body {
-//                analyze_ns_stmt(repo, child, stmt)?;
-//            }
-//        }
-//
-//        _ => return Err(RidottoError::todo(format!("analyze_ns: {expr:#?}"))),
-//    }
-//
-//    Ok(())
-//}
-//
-//#[cfg(test)]
-//mod test_ns {
-//    use super::*;
-//
-//    #[test]
-//    fn files() {
-//        #[cfg(feature = "logging")]
-//        my_log::init();
-//
-//        for file in [
-//            "examples/99b.pc",
-//            "examples/test_files/closure/simple.pc",
-//            "examples/test_files/closure/nested_closure.pc",
-//            "examples/test_files/closure/assign_to_closure.pc",
-//        ] {
-//            println!("{file}");
-//            let src = std::fs::read_to_string(file).unwrap();
-//            let ast = crate::compiler::parser::parse(&src).unwrap();
-//            let repo = analyze_ns(&ast).unwrap();
-//            repo.debug();
-//        }
-//    }
-//
-//    #[test]
-//    fn nesting() {
-//        let mut repo = NamespaceRepository::new();
-//        repo.new_global(Token::identifier("wow"));
-//
-//        {
-//            let child = repo.with_parent(repo.global_key(), Token::identifier("top"));
-//            assert!(repo.find(child, Token::identifier("wow")).is_some());
-//            let local = repo.new_local(child, Token::identifier("bean")).unwrap();
-//
-//            {
-//                let child2 = repo.with_parent(child, Token::identifier("top"));
-//                assert_eq!(repo.find(child2, Token::identifier("bean")).unwrap(), local);
-//                let local_shadow = repo.new_local(child2, Token::identifier("bean")).unwrap();
-//                assert_eq!(
-//                    repo.find(child2, Token::identifier("bean")).unwrap(),
-//                    local_shadow
-//                );
-//                assert_ne!(repo.find(child2, Token::identifier("bean")).unwrap(), local);
-//            }
-//        }
-//    }
-//}
+fn analyze_ns_stmt<'src>(
+    repo: &mut NamespaceRepository<'src>,
+    ns: DefaultKey,
+    stmt: &'src Stmt<'src>,
+) -> Result<(), RidottoError> {
+    match stmt {
+        Stmt::Binding { pattern, value } => {
+            analyze_ns_pattern(repo, ns, pattern)?;
+            analyze_ns_expr(repo, ns, value)?;
+        }
+
+        Stmt::Expr(expr) => analyze_ns_expr(repo, ns, expr)?,
+    }
+
+    Ok(())
+}
+
+fn analyze_ns_pattern<'src>(
+    repo: &mut NamespaceRepository<'src>,
+    ns: DefaultKey,
+    pattern: &'src Pattern<'src>,
+) -> Result<(), RidottoError> {
+    match pattern {
+        Pattern::Any => {}
+
+        Pattern::Binding { name } => {
+            repo.new_variable(ns, name.lowercase)?;
+        }
+
+        Pattern::MutableBinding { name } => {
+            repo.new_variable(ns, name.lowercase)?;
+        }
+
+        Pattern::Alternate { left, right } => {
+            analyze_ns_pattern(repo, ns, left)?;
+            analyze_ns_pattern(repo, ns, right)?;
+        }
+
+        Pattern::StructDestructure { bindings, .. } => {
+            for binding in bindings.iter() {
+                match binding {
+                    StructFieldPattern::Named { name, value } => {
+                        analyze_ns_pattern(repo, ns, value)?;
+                    }
+                        //repo.new_variable(ns, name.lowercase)?;
+
+                    StructFieldPattern::Shorthand { name } => {
+                        repo.new_variable(ns, name.lowercase)?;
+                    }
+
+                    StructFieldPattern::MutableShorthand { name } => {
+                        repo.new_variable(ns, name.lowercase)?;
+                    }
+
+                    StructFieldPattern::Rest => {}
+                }
+            }
+        }
+
+        Pattern::TupleDestructure { bindings, .. } | Pattern::Tuple { bindings } => {
+            for binding in bindings.iter() {
+                analyze_ns_pattern(repo, ns, binding)?;
+            }
+        }
+
+        Pattern::EnumVariant { .. } => {}
+    }
+
+    Ok(())
+}
+
+fn analyze_ns_expr<'src>(
+    repo: &mut NamespaceRepository<'src>,
+    ns: DefaultKey,
+    expr: &'src Expr<'src>,
+) -> Result<(), RidottoError> {
+    match expr {
+        Expr::Block { stmts } => {
+            let block = repo.with_parent(ns, expr.token());
+            for stmt in stmts.iter() {
+                analyze_ns_stmt(repo, block, stmt)?;
+            }
+        }
+
+        Expr::Literal { .. } => {}
+
+        Expr::Paren { expr } => {
+            analyze_ns_expr(repo, ns, expr)?;
+        }
+
+        Expr::GetFrom { object, .. } => {
+            analyze_ns_expr(repo, ns, object)?;
+        }
+
+        Expr::TupleIndex { object, .. } => {
+            analyze_ns_expr(repo, ns, object)?;
+        }
+
+        Expr::Call { callee, args } => {
+            analyze_ns_expr(repo, ns, callee)?;
+            for arg in args.iter() {
+                analyze_ns_expr(repo, ns, arg)?;
+            }
+        }
+
+        // TODO check type namespace
+        Expr::StructInstantiate { values, .. } => {
+            for value in values.iter() {
+                match value {
+                    StructField::Named { value, .. } => analyze_ns_expr(repo, ns, value)?,
+                    StructField::Shorthand { name } => {
+                        if repo.find(ns, name.lowercase).is_none() {
+                            return err(name.lowercase);
+                        }
+                    }
+                    StructField::Spread { value } => analyze_ns_expr(repo, ns, value)?,
+                }
+            }
+        }
+
+        // TODO check type namespace
+        Expr::TupleInstantiate { values, .. } => {
+            for value in values.iter() {
+                analyze_ns_expr(repo, ns, value)?;
+            }
+        }
+
+        Expr::Tuple { values } => {
+            for value in values.iter() {
+                analyze_ns_expr(repo, ns, value)?;
+            }
+        }
+
+        Expr::Unary { rhs, .. } => {
+            analyze_ns_expr(repo, ns, rhs)?;
+        }
+
+        Expr::Binary { lhs, rhs, .. } => {
+            analyze_ns_expr(repo, ns, lhs)?;
+            analyze_ns_expr(repo, ns, rhs)?;
+        }
+
+        Expr::Variable { variable } => {
+            if repo.find(ns, variable.lowercase).is_none() {
+                return err(variable.lowercase);
+            }
+        }
+
+        // TODO check type namespace
+        Expr::TypeName { .. } => {}
+
+        Expr::If {
+            cond,
+            block,
+            else_block,
+        } => {
+            analyze_ns_expr(repo, ns, cond)?;
+            let block_ns = repo.with_parent(ns, cond.token());
+
+            for stmt in block.iter() {
+                analyze_ns_stmt(repo, block_ns, stmt)?;
+            }
+
+            if let Some(else_block) = else_block {
+                let else_block_ns = repo.with_parent(ns, cond.token());
+                for stmt in else_block.iter() {
+                    analyze_ns_stmt(repo, else_block_ns, stmt)?;
+                }
+            }
+        }
+
+        Expr::For {} => {}
+
+        Expr::Match {
+            discriminant,
+            branches,
+        } => {
+            analyze_ns_expr(repo, ns, &discriminant)?;
+
+            for branch in branches.iter() {
+                let branch_ns = repo.with_parent(ns, expr.token());
+                analyze_ns_pattern(repo, branch_ns, &branch.pattern)?;
+                if let Some(guard) = branch.guard.as_ref() {
+                    analyze_ns_expr(repo, branch_ns, guard)?;
+                }
+                analyze_ns_expr(repo, branch_ns, &branch.body)?;
+            }
+        }
+    }
+
+    Ok(())
+}

@@ -56,6 +56,11 @@ pub enum RidottoError {
     RecursionLimitReached {
         pos: Pos,
     },
+
+    UnknownVariable {
+        variable: String,
+        pos: Pos,
+    },
 }
 
 impl RidottoError {
@@ -106,6 +111,9 @@ impl RidottoError {
             Self::RecursionLimitReached { .. } => {
                 format!("Recursion limit reached")
             }
+            Self::UnknownVariable { variable, .. } => {
+                format!("Unknown variable {:?}", variable)
+            }
         }
     }
 
@@ -122,6 +130,7 @@ impl RidottoError {
             Self::ExpectedPattern { pos, .. } => *pos,
             Self::SpreadOrRestNotLast { pos } => *pos,
             Self::RecursionLimitReached { pos, .. } => *pos,
+            Self::UnknownVariable { pos, .. } => *pos,
         }
     }
 
@@ -138,6 +147,7 @@ impl RidottoError {
             Self::ExpectedPattern { got, .. } => got,
             Self::SpreadOrRestNotLast { .. } => "",
             Self::RecursionLimitReached { .. } => "",
+            Self::UnknownVariable { variable, .. } => &variable,
         }
     }
 
@@ -208,6 +218,13 @@ impl RidottoError {
 
     pub fn spread_or_rest_not_last(got: Token) -> Self {
         Self::SpreadOrRestNotLast { pos: got.pos }
+    }
+
+    pub fn unknown_variable(got: Token) -> Self {
+        Self::UnknownVariable {
+            variable: got.lexeme.into(),
+            pos: got.pos,
+        }
     }
 }
 

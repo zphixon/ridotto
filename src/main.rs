@@ -53,7 +53,18 @@ fn main(args: List[&String]) {
     print_tokens(&tokens);
 
     match parse::parse(&src) {
-        Ok(ast) => println!("{:#?}", ast),
+        Ok(ast) => {
+            println!("{:#?}", ast);
+
+            match ns::analyze_ns(&ast) {
+                Ok(repo) => repo.debug(),
+                Err(err) => {
+                    println!("{:?}", err);
+                    err.report().print(ariadne::Source::from(&src)).unwrap();
+                }
+            }
+        }
+
         Err(err) => {
             println!("{:?}", err);
             err.report().print(ariadne::Source::from(src)).unwrap();
