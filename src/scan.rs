@@ -22,7 +22,7 @@ pub enum TokenType {
     /// const
     Const,
     /// fn
-    Fn,
+    Func,
     /// if
     If,
     /// else
@@ -136,7 +136,7 @@ impl TokenType {
     pub fn starts_function(self) -> bool {
         matches!(
             self,
-            TokenType::Fn
+            TokenType::Func
                 | TokenType::Async
                 | TokenType::Const
                 | TokenType::Export
@@ -539,7 +539,7 @@ impl<'src> Scanner<'src> {
 
 fn into_keyword(s: &str) -> Option<TokenType> {
     match s {
-        "fn" => Some(TokenType::Fn),
+        "func" => Some(TokenType::Func),
         "if" => Some(TokenType::If),
         "else" => Some(TokenType::Else),
         "while" => Some(TokenType::While),

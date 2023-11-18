@@ -89,10 +89,7 @@ fn parse_type_variant<'src>(
             alias: parse_type_expr(scanner, depth)?,
         }
     } else if scanner.peek_token().type_ == TokenType::LeftParen {
-        let TypeExpr::Tuple {
-            inner: fields,
-            ..
-        } = parse_tuple_type_expr(scanner, depth)? else {
+        let TypeExpr::Tuple { inner: fields, .. } = parse_tuple_type_expr(scanner, depth)? else {
             unreachable!()
         };
 
@@ -219,7 +216,7 @@ fn parse_function_head<'src>(
     let mut export = false;
 
     while scanner.peek_token().type_.starts_function()
-        && scanner.peek_token().type_ != TokenType::Fn
+        && scanner.peek_token().type_ != TokenType::Func
     {
         let peeked = scanner.peek_token();
         match peeked.type_ {
@@ -239,14 +236,14 @@ fn parse_function_head<'src>(
     }
 
     let got = scanner.peek_token();
-    consume(scanner, TokenType::Fn, depth).map_err(|_| {
+    consume(scanner, TokenType::Func, depth).map_err(|_| {
         RidottoError::expected_one_of(
             [
                 TokenType::Builtin,
                 TokenType::Async,
                 TokenType::Const,
                 TokenType::Export,
-                TokenType::Fn,
+                TokenType::Func,
             ],
             got,
         )
@@ -835,7 +832,7 @@ fn parse_type_expr<'src>(
     scanner: &mut Scanner<'src>,
     depth: usize,
 ) -> Result<TypeExpr<'src>, RidottoError> {
-    if scanner.peek_token().type_ == TokenType::Fn {
+    if scanner.peek_token().type_ == TokenType::Func {
         parse_fn_type_expr(scanner, depth)
     } else if scanner.peek_token().type_ == TokenType::LeftParen {
         parse_tuple_type_expr(scanner, depth)
@@ -901,7 +898,7 @@ fn parse_fn_type_expr<'src>(
     scanner: &mut Scanner<'src>,
     depth: usize,
 ) -> Result<TypeExpr<'src>, RidottoError> {
-    consume(scanner, TokenType::Fn, depth)?;
+    consume(scanner, TokenType::Func, depth)?;
 
     let type_args = if scanner.peek_token().type_ == TokenType::LeftBracket {
         parse_type_args(scanner, depth)?
@@ -909,9 +906,7 @@ fn parse_fn_type_expr<'src>(
         Vec::new()
     };
 
-    let TypeExpr::Tuple {
-        inner: args
-    } = parse_tuple_type_expr(scanner, depth)? else {
+    let TypeExpr::Tuple { inner: args } = parse_tuple_type_expr(scanner, depth)? else {
         unreachable!();
     };
 
@@ -923,7 +918,7 @@ fn parse_fn_type_expr<'src>(
         None
     };
 
-    Ok(TypeExpr::FnType {
+    Ok(TypeExpr::FuncType {
         type_args,
         args,
         return_,

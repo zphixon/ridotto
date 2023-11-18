@@ -57,7 +57,7 @@ type Point[Math[n]] {
     Metric
     Customary
 
-    fn distance(a: Point, b: Point) -> Option[n] {
+    func distance(a: Point, b: Point) -> Option[n] {
         match (a, b) {
             (Metric, Metric) | (Customary, Customary) =>
                 Option.Some { value: Math.sqrt(Math.powi(b.x - a.x, 2) + Math.powi(b.y - a.y, 2)) }
@@ -70,7 +70,7 @@ type Option[t] {
     Some(t)
     None
 
-    fn unwrap(self: Self) -> t {
+    func unwrap(self: Self) -> t {
         match self {
             Option.Some(value) => value,
             Option.None => panic("called unwrap on None value")
@@ -79,16 +79,16 @@ type Option[t] {
 }
 
 class Monad[a, b] {
-    fn wrap(a: a) -> Monad[a]
-    fn map(m: Monad[a], f: fn(a) -> Monad[b]) -> Monad[b]
+    func wrap(a: a) -> Monad[a]
+    func map(m: Monad[a], f: func(a) -> Monad[b]) -> Monad[b]
 }
 
 impl Monad[a, b] for Option[a] {
-    fn wrap(value: a) -> Option[a] {
+    func wrap(value: a) -> Option[a] {
         Option.Some(value)
     }
 
-    fn map(self: Option[a], f: fn(a) -> Option[b]) -> Option[b] {
+    func map(self: Option[a], f: func(a) -> Option[b]) -> Option[b] {
         match self {
             Option.Some(value) => f(value)
             Option.None => Option.None
@@ -102,11 +102,11 @@ type Result[t, e] {
 }
 
 impl Monad[a, b] for Result[a, e] {
-    fn wrap(value: a) -> Result[a, e] {
+    func wrap(value: a) -> Result[a, e] {
         Result.Ok(value)
     }
 
-    fn map(self: Result[a, e], f: fn(a) -> Result[b, e]) -> Result[b, e] {
+    func map(self: Result[a, e], f: func(a) -> Result[b, e]) -> Result[b, e] {
         match self {
             Result.Ok(value) => f(value)
             Result.Err(err) => Result.Err(err)
@@ -115,9 +115,9 @@ impl Monad[a, b] for Result[a, e] {
 }
 
 class Iterator[t] {
-    fn next(self: Iterator[t]) -> Option[t]
+    func next(self: Iterator[t]) -> Option[t]
 
-    fn map(self: Iterator[t], xform: fn(t) -> u) -> Map[t, u] {
+    func map(self: Iterator[t], xform: func(t) -> u) -> Map[t, u] {
         Map {
             iter: self
             xform
@@ -127,11 +127,11 @@ class Iterator[t] {
 
 type Map[t, u] {
     iter: Iterator[t]
-    xform: fn(t) -> u
+    xform: func(t) -> u
 }
 
 impl Iterator[u] for Map[t, u] {
-    fn next(self: Map[t, u]) -> Option[u] {
+    func next(self: Map[t, u]) -> Option[u] {
         match self.iter.next() {
             Some(some) => Some((self.xform)(some))
             None => None
@@ -139,11 +139,11 @@ impl Iterator[u] for Map[t, u] {
     }
 }
 
-fn lol(a: (A, B, C)) -> (C, B, A) {
+func lol(a: (A, B, C)) -> (C, B, A) {
     (a.3, a.2, a.1)
 }
 
-//fn parse_primary(scanner: &Scanner, depth: Usize) -> Result[Expr, Error] {
+//func parse_primary(scanner: &Scanner, depth: Usize) -> Result[Expr, Error] {
 //    let type_ = scanner.peek_token().type_
 //    match type_ {
 //        TokenType.LowerIdent => Ok(Expr.Variable {

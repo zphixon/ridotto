@@ -291,8 +291,8 @@ pub enum TypeExpr<'src> {
         name: TypeName<'src>,
         type_args: Vec<TypeExpr<'src>>,
     },
-    /// fn[...](...) -> ...
-    FnType {
+    /// func[...](...) -> ...
+    FuncType {
         type_args: Vec<TypeExpr<'src>>,
         args: Vec<TypeExpr<'src>>,
         return_: Option<Box<TypeExpr<'src>>>,
@@ -507,12 +507,12 @@ impl Debug for TypeExpr<'_> {
                 .field("type_args", type_args)
                 .finish(),
 
-            TypeExpr::FnType {
+            TypeExpr::FuncType {
                 type_args,
                 args,
                 return_,
             } => {
-                let mut dbg = f.debug_struct("FnType");
+                let mut dbg = f.debug_struct("FuncType");
                 dbg.field("type_args", type_args);
                 dbg.field("args", args);
                 if let Some(return_) = return_.as_ref() {
