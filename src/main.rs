@@ -5,6 +5,7 @@ mod error;
 mod ns;
 mod ns2;
 mod parse;
+mod parse2;
 mod scan;
 mod typeck;
 
@@ -43,7 +44,10 @@ fn main(args: List[&String]) {
 }
 "#;
 
-    let src = std::fs::read_to_string("sample.ridotto").unwrap();
+    let src = std::fs::read_to_string(std::env::args().nth(1).unwrap_or("sample.ridotto".into()))
+        .unwrap();
+
+    let src = "type Asdf";
 
     let mut scanner = Scanner::new(&src);
     let mut tokens = vec![];
@@ -52,22 +56,24 @@ fn main(args: List[&String]) {
     }
     print_tokens(&tokens);
 
-    match parse::parse(&src) {
-        Ok(ast) => {
-            println!("{:#?}", ast);
+    println!("{:#?}", parse2::Parser::parse(src));
 
-            match ns::analyze_ns(&ast) {
-                Ok(repo) => repo.debug(),
-                Err(err) => {
-                    println!("{:?}", err);
-                    err.report().print(ariadne::Source::from(&src)).unwrap();
-                }
-            }
-        }
+    //match parse::parse(&src) {
+    //    Ok(ast) => {
+    //        println!("{:#?}", ast);
 
-        Err(err) => {
-            println!("{:?}", err);
-            err.report().print(ariadne::Source::from(src)).unwrap();
-        }
-    }
+    //        match ns::analyze_ns(&ast) {
+    //            Ok(repo) => repo.debug(),
+    //            Err(err) => {
+    //                println!("{:?}", err);
+    //                err.report().print(ariadne::Source::from(&src)).unwrap();
+    //            }
+    //        }
+    //    }
+
+    //    Err(err) => {
+    //        println!("{:?}", err);
+    //        err.report().print(ariadne::Source::from(src)).unwrap();
+    //    }
+    //}
 }

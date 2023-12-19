@@ -1,0 +1,24 @@
+Module = Item*
+
+Item = Type | Class | Function
+
+Type = 'type' 'name' TypeArgs? TypeInner?
+TypeArgs = '[' TypeExpr (',' TypeExpr)* ']'
+
+TypeInner = ('=' TypeExpr) | ('{' TypeAnnotated* TypeVariant* Function* '}')
+TypeVariant = 'name' TypeInner
+
+Class = 'class' 'name' ('{' MaybeAbstractFunction* '}')?
+MaybeAbstractFunction = Function | FunctionHead
+
+FunctionHead = ('export' | 'const' | 'async' | 'builtin')* 'func' 'name'
+    TypeArgs? '(' AnnotatedArgs ')' ('->' TypeExpr)?
+
+AnnotatedArgs = TypeAnnotated (',' TypeAnnotated)*
+
+Function = FunctionHead '{' Stmt* '}'
+
+TypeAnnotated = 'name' ':' TypeExpr
+
+TypeExpr = TypeName TypeArgs?
+TypeName = 'name' ('.' 'name')*

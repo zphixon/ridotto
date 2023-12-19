@@ -1,7 +1,7 @@
 use std::{
     fmt,
     hash::{Hash, Hasher},
-    iter::Peekable,
+    iter::Peekable, collections::VecDeque,
 };
 use unicode_segmentation::{Graphemes, UnicodeSegmentation};
 
@@ -252,7 +252,7 @@ pub fn print_tokens(tokens: &[Token]) {
 pub struct Scanner<'src> {
     graphemes: Peekable<Graphemes<'src>>,
 
-    current: Option<Token<'src>>,
+    lookahead: VecDeque<Token<'src>>,
 
     line: usize,
     column: usize,
@@ -267,7 +267,7 @@ impl<'src> Scanner<'src> {
         Self {
             graphemes: source.graphemes(true).peekable(),
 
-            current: None,
+            lookahead: VecDeque::with_capacity(2),
 
             line: 1,
             column: 0,
@@ -298,20 +298,30 @@ impl<'src> Scanner<'src> {
     }
 
     pub fn next_token(&mut self) -> Token<'src> {
-        if let Some(current) = self.current.take() {
-            return current;
+        if let Some(next) = self.lookahead.pop_front() {
+            return next;
         }
 
         self.next()
     }
 
     pub fn peek_token(&mut self) -> Token<'src> {
-        if let Some(current) = self.current.clone() {
-            return current;
+        if let Some(next) = self.lookahead.get(0) {
+            return *next;
         }
 
-        self.current = Some(self.next());
-        self.current.clone().unwrap()
+        let next = self.next();
+        self.lookahead.push_back(next);
+        *self.lookahead.get(0).unwrap()
+    }
+
+    pub fn lookahead(&mut self, n: usize) -> Token<'src> {
+        while self.lookahead.len() <= n {
+            let next = self.next();
+            self.lookahead.push_back(next);
+        }
+
+        *self.lookahead.get(n).unwrap()
     }
 
     fn slurp_whitespace(&mut self) {
