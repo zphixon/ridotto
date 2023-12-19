@@ -1,12 +1,5 @@
-use crate::scan::{print_tokens, Scanner, TokenType};
+use ridotto_macros::{node_kind, field_name};
 
-mod ast;
-mod error;
-mod ns;
-mod ns2;
-mod parse;
-mod parse2;
-mod scan;
 mod typeck;
 
 fn main() {
@@ -49,31 +42,37 @@ fn main(args: List[&String]) {
 
     let src = "type Asdf";
 
-    let mut scanner = Scanner::new(&src);
-    let mut tokens = vec![];
-    while scanner.peek_token().type_ != TokenType::Eof {
-        tokens.push(scanner.next_token());
+    let sarce = r#"
+    
+    type Asdf
+    func asdf() -> Asdf.Bsdf[Csdf] {}
+    
+    "#;
+
+    let mut parser = tree_sitter::Parser::new();
+    parser
+        .set_language(tree_sitter_ridotto::language())
+        .unwrap();
+    let tree = parser.parse(sarce, None).unwrap();
+    println!("{:#?}", tree);
+
+    let mut cursor = tree.walk();
+    fn walk(sarce: &str, cursor: &mut tree_sitter::TreeCursor, indent: usize) {
+        let indent_ = "  ".repeat(indent);
+        println!("{indent_}{:#?}", cursor.node());
+        if cursor.node().kind() == node_kind!("ident") {
+            println!("{indent_}  IDENT {:?}", &sarce[cursor.node().byte_range()]);
+        }
+        if cursor.field_name() == Some(field_name!("name")) {
+            println!("{indent_}  NAME {:?}", &sarce[cursor.node().byte_range()]);
+        }
+        if cursor.goto_first_child() {
+            walk(sarce, cursor, indent + 1);
+            cursor.goto_parent();
+        }
+        while cursor.goto_next_sibling() {
+            walk(sarce, cursor, indent);
+        }
     }
-    print_tokens(&tokens);
-
-    println!("{:#?}", parse2::Parser::parse(src));
-
-    //match parse::parse(&src) {
-    //    Ok(ast) => {
-    //        println!("{:#?}", ast);
-
-    //        match ns::analyze_ns(&ast) {
-    //            Ok(repo) => repo.debug(),
-    //            Err(err) => {
-    //                println!("{:?}", err);
-    //                err.report().print(ariadne::Source::from(&src)).unwrap();
-    //            }
-    //        }
-    //    }
-
-    //    Err(err) => {
-    //        println!("{:?}", err);
-    //        err.report().print(ariadne::Source::from(src)).unwrap();
-    //    }
-    //}
+    walk(sarce, &mut cursor, 0);
 }
