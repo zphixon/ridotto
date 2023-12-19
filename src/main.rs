@@ -1,4 +1,4 @@
-use ridotto_macros::{node_kind, field_name};
+use ridotto_macros::{field_name, node_kind};
 
 mod typeck;
 
@@ -44,8 +44,17 @@ fn main(args: List[&String]) {
 
     let sarce = r#"
     
-    type Asdf
-    func asdf() -> Asdf.Bsdf[Csdf] {}
+type Atype {
+    y: bob
+    Michael {
+        x: Int
+    }
+    Tomlinson
+    # a tingus, a tangus
+    Boblinson
+    func bob() {}
+}
+    func asdf(x: int, b: y) -> Asdf.Bsdf[Csdf, Dsdf] {}
     
     "#;
 
@@ -58,13 +67,25 @@ fn main(args: List[&String]) {
 
     let mut cursor = tree.walk();
     fn walk(sarce: &str, cursor: &mut tree_sitter::TreeCursor, indent: usize) {
-        let indent_ = "  ".repeat(indent);
-        println!("{indent_}{:#?}", cursor.node());
-        if cursor.node().kind() == node_kind!("ident") {
-            println!("{indent_}  IDENT {:?}", &sarce[cursor.node().byte_range()]);
-        }
-        if cursor.field_name() == Some(field_name!("name")) {
-            println!("{indent_}  NAME {:?}", &sarce[cursor.node().byte_range()]);
+        let indent_ = "|  ".repeat(indent);
+        println!(
+            "{indent_}{}{}{}",
+            cursor.node().kind(),
+            if cursor.node().kind() == node_kind!("ident") {
+                format!(" {}", &sarce[cursor.node().byte_range()])
+            } else {
+                "".into()
+            },
+            cursor
+                .field_name()
+                .map(|name| format!(" ({})", name))
+                .unwrap_or("".into()),
+        );
+        if cursor.node().kind() == node_kind!("ERROR") {
+            println!(
+                "{indent_}  OH SHITTTTT {:?}",
+                &sarce[cursor.node().byte_range()]
+            );
         }
         if cursor.goto_first_child() {
             walk(sarce, cursor, indent + 1);

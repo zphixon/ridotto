@@ -18,6 +18,20 @@
     "type": "funcHead",
     "named": true,
     "fields": {
+      "args": {
+        "multiple": true,
+        "required": false,
+        "types": [
+          {
+            "type": ",",
+            "named": false
+          },
+          {
+            "type": "typeAnnotated",
+            "named": true
+          }
+        ]
+      },
       "name": {
         "multiple": false,
         "required": true,
@@ -61,17 +75,67 @@
           "named": true
         },
         {
-          "type": "type",
+          "type": "typeDecl",
           "named": true
         }
       ]
     }
   },
   {
-    "type": "type",
+    "type": "typeAnnotated",
     "named": true,
     "fields": {
       "name": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "ident",
+            "named": true
+          }
+        ]
+      },
+      "type": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "typeExpr",
+            "named": true
+          }
+        ]
+      }
+    }
+  },
+  {
+    "type": "typeDecl",
+    "named": true,
+    "fields": {
+      "typeAlias": {
+        "multiple": true,
+        "required": false,
+        "types": [
+          {
+            "type": "=",
+            "named": false
+          },
+          {
+            "type": "typeExpr",
+            "named": true
+          }
+        ]
+      },
+      "typeInner": {
+        "multiple": false,
+        "required": false,
+        "types": [
+          {
+            "type": "typeInner",
+            "named": true
+          }
+        ]
+      },
+      "typeName": {
         "multiple": false,
         "required": true,
         "types": [
@@ -84,7 +148,7 @@
     }
   },
   {
-    "type": "typeArgs",
+    "type": "typeExpr",
     "named": true,
     "fields": {},
     "children": {
@@ -94,27 +158,72 @@
         {
           "type": "typeExpr",
           "named": true
-        }
-      ]
-    }
-  },
-  {
-    "type": "typeExpr",
-    "named": true,
-    "fields": {},
-    "children": {
-      "multiple": true,
-      "required": true,
-      "types": [
-        {
-          "type": "typeArgs",
-          "named": true
         },
         {
           "type": "typeName",
           "named": true
         }
       ]
+    }
+  },
+  {
+    "type": "typeInner",
+    "named": true,
+    "fields": {
+      "methods": {
+        "multiple": true,
+        "required": false,
+        "types": [
+          {
+            "type": "func",
+            "named": true
+          }
+        ]
+      },
+      "typeInnerProperties": {
+        "multiple": true,
+        "required": false,
+        "types": [
+          {
+            "type": "typeAnnotated",
+            "named": true
+          }
+        ]
+      },
+      "typeInnerVariants": {
+        "multiple": true,
+        "required": false,
+        "types": [
+          {
+            "type": "ident",
+            "named": true
+          },
+          {
+            "type": "typeInner",
+            "named": true
+          }
+        ]
+      },
+      "variant": {
+        "multiple": true,
+        "required": false,
+        "types": [
+          {
+            "type": "typeInner",
+            "named": true
+          }
+        ]
+      },
+      "variantName": {
+        "multiple": true,
+        "required": false,
+        "types": [
+          {
+            "type": "ident",
+            "named": true
+          }
+        ]
+      }
     }
   },
   {
@@ -150,6 +259,14 @@
   },
   {
     "type": ".",
+    "named": false
+  },
+  {
+    "type": ":",
+    "named": false
+  },
+  {
+    "type": "=",
     "named": false
   },
   {
