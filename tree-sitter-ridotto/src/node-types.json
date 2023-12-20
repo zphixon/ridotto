@@ -1,5 +1,10 @@
 [
   {
+    "type": "docComment",
+    "named": true,
+    "fields": {}
+  },
+  {
     "type": "func",
     "named": true,
     "fields": {},
@@ -23,10 +28,6 @@
         "required": false,
         "types": [
           {
-            "type": ",",
-            "named": false
-          },
-          {
             "type": "typeAnnotated",
             "named": true
           }
@@ -46,10 +47,6 @@
         "multiple": true,
         "required": false,
         "types": [
-          {
-            "type": "->",
-            "named": false
-          },
           {
             "type": "typeExpr",
             "named": true
@@ -111,66 +108,17 @@
     "type": "typeDecl",
     "named": true,
     "fields": {
-      "typeAlias": {
+      "alias": {
         "multiple": true,
         "required": false,
         "types": [
-          {
-            "type": "=",
-            "named": false
-          },
           {
             "type": "typeExpr",
             "named": true
           }
         ]
       },
-      "typeInner": {
-        "multiple": false,
-        "required": false,
-        "types": [
-          {
-            "type": "typeInner",
-            "named": true
-          }
-        ]
-      },
-      "typeName": {
-        "multiple": false,
-        "required": true,
-        "types": [
-          {
-            "type": "ident",
-            "named": true
-          }
-        ]
-      }
-    }
-  },
-  {
-    "type": "typeExpr",
-    "named": true,
-    "fields": {},
-    "children": {
-      "multiple": true,
-      "required": true,
-      "types": [
-        {
-          "type": "typeExpr",
-          "named": true
-        },
-        {
-          "type": "typeName",
-          "named": true
-        }
-      ]
-    }
-  },
-  {
-    "type": "typeInner",
-    "named": true,
-    "fields": {
-      "methods": {
+      "method": {
         "multiple": true,
         "required": false,
         "types": [
@@ -180,7 +128,17 @@
           }
         ]
       },
-      "typeInnerProperties": {
+      "name": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "ident",
+            "named": true
+          }
+        ]
+      },
+      "property": {
         "multiple": true,
         "required": false,
         "types": [
@@ -190,36 +148,38 @@
           }
         ]
       },
-      "typeInnerVariants": {
-        "multiple": true,
-        "required": false,
-        "types": [
-          {
-            "type": "ident",
-            "named": true
-          },
-          {
-            "type": "typeInner",
-            "named": true
-          }
-        ]
-      },
       "variant": {
         "multiple": true,
         "required": false,
         "types": [
           {
-            "type": "typeInner",
+            "type": "typeVariant",
             "named": true
           }
         ]
-      },
-      "variantName": {
+      }
+    }
+  },
+  {
+    "type": "typeExpr",
+    "named": true,
+    "fields": {
+      "instantiate": {
         "multiple": true,
         "required": false,
         "types": [
           {
-            "type": "ident",
+            "type": "typeExpr",
+            "named": true
+          }
+        ]
+      },
+      "name": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "typeName",
             "named": true
           }
         ]
@@ -242,40 +202,60 @@
     }
   },
   {
-    "type": "(",
-    "named": false
-  },
-  {
-    "type": ")",
-    "named": false
-  },
-  {
-    "type": ",",
-    "named": false
-  },
-  {
-    "type": "->",
-    "named": false
-  },
-  {
-    "type": ".",
-    "named": false
-  },
-  {
-    "type": ":",
-    "named": false
-  },
-  {
-    "type": "=",
-    "named": false
-  },
-  {
-    "type": "[",
-    "named": false
-  },
-  {
-    "type": "]",
-    "named": false
+    "type": "typeVariant",
+    "named": true,
+    "fields": {
+      "alias": {
+        "multiple": true,
+        "required": false,
+        "types": [
+          {
+            "type": "typeExpr",
+            "named": true
+          }
+        ]
+      },
+      "method": {
+        "multiple": true,
+        "required": false,
+        "types": [
+          {
+            "type": "func",
+            "named": true
+          }
+        ]
+      },
+      "name": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "ident",
+            "named": true
+          }
+        ]
+      },
+      "property": {
+        "multiple": true,
+        "required": false,
+        "types": [
+          {
+            "type": "typeAnnotated",
+            "named": true
+          }
+        ]
+      },
+      "variant": {
+        "multiple": true,
+        "required": false,
+        "types": [
+          {
+            "type": "typeVariant",
+            "named": true
+          }
+        ]
+      }
+    }
   },
   {
     "type": "async",
@@ -307,14 +287,6 @@
   },
   {
     "type": "type",
-    "named": false
-  },
-  {
-    "type": "{",
-    "named": false
-  },
-  {
-    "type": "}",
     "named": false
   }
 ]

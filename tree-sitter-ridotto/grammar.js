@@ -4,54 +4,77 @@ module.exports = grammar({
   word: $ => $.ident,
   extras: $ => [
     /\s+/,
-    seq('#', /.*/, '\n'),
+    $._comment,
+    $.docComment,
   ],
 
   rules: {
     source_file: $ => repeat(choice($.typeDecl, $.func, $.klass)),
 
-    //comment: $ => seq('#', /.*/, '\n'),
-    //docComment: $ => seq('##', /.*/, '\n'),
+    _lparen: $ => '(',
+    _rparen: $ => ')',
+    _lbrack: $ => '[',
+    _rbrack: $ => ']',
+    _lbrace: $ => '{',
+    _rbrace: $ => '}',
+    _comma: $ => ',',
+    _period: $ => '.',
+    _eq: $ => '=',
+    _colon: $ => ':',
+    _arrow: $ => '->',
+    _pound: $ => '#',
+    _poundPound: $ => '##',
+    _newline: $ => '\n',
 
-    _typeArgs: $ => seq($.typeExpr, repeat(seq(',', $.typeExpr))),
-    typeExpr: $ => seq($.typeName, optional(seq('[', $._typeArgs, ']'))),
-    typeName: $ => seq($.ident, repeat(seq('.', $.ident))),
+    _comment: $ => seq($._pound, /.*/, $._newline),
+    docComment: $ => seq($._poundPound, /.*/, $._newline),
+
+    _typeArgs: $ => seq($.typeExpr, repeat(seq($._comma, $.typeExpr))),
+    typeExpr: $ => seq(
+      field('name', $.typeName),
+      field('instantiate', optional(seq($._lbrack, $._typeArgs, $._rbrack))),
+    ),
+    typeName: $ => seq($.ident, repeat(seq($._period, $.ident))),
 
     typeDecl: $ => seq(
       'type',
-      field('typeName', $.ident),
-      optional(choice(
-        field('typeInner', $.typeInner),
-        field('typeAlias', seq('=', $.typeExpr)),
-      )),
+      field('name', $.ident),
+      optional($._innerOrAlias),
     ),
 
-    typeInner: $ => seq('{',
-      field('typeInnerProperties', repeat($.typeAnnotated)),
-      field('typeInnerVariants', repeat(seq(
-        field('variantName', $.ident),
-        field('variant', optional($.typeInner)),
-      ))),
-      field('methods', repeat($.func)),
-    '}'),
+    _innerOrAlias: $ => choice(
+      $._typeInner,
+      field('alias', seq($._eq, $.typeExpr)),
+    ),
+
+    _typeInner: $ => seq($._lbrace,
+      field('property', repeat($.typeAnnotated)),
+      field('variant', repeat($.typeVariant)),
+      field('method', repeat($.func)),
+    $._rbrace),
+
+    typeVariant: $ => seq(
+      field('name', $.ident),
+      optional($._innerOrAlias),
+    ),
 
     typeAnnotated: $ => seq(
       field('name', $.ident),
-      ':',
+      $._colon,
       field('type', $.typeExpr),
     ),
 
     funcHead: $ => seq(
       repeat(choice('async', 'const', 'export', 'builtin')), 'func',
       field('name', $.ident),
-      '(', field('args', optional(seq(
+      $._lparen, field('args', optional(seq(
         $.typeAnnotated,
-        repeat(seq(',', $.typeAnnotated)),
-      ))), ')',
-      field('return', optional(seq('->', $.typeExpr))),
+        repeat(seq($._comma, $.typeAnnotated)),
+      ))), $._rparen,
+      field('return', optional(seq($._arrow, $.typeExpr))),
     ),
 
-    func: $ => seq($.funcHead, '{', '}'),
+    func: $ => seq($.funcHead, field('body', seq($._lbrace, $._rbrace))),
 
     klass: $ => 'class',
 

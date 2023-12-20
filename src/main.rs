@@ -45,12 +45,13 @@ fn main(args: List[&String]) {
     let sarce = r#"
     
 type Atype {
-    y: bob
+    y: bob.frob[i.do.not.like.green.eggs.and.ham]
     Michael {
         x: Int
+        JJJJJJjjj
     }
-    Tomlinson
-    # a tingus, a tangus
+    Tomlinson = Joo
+    ## a tingus, a tangus
     Boblinson
     func bob() {}
 }
@@ -71,8 +72,11 @@ type Atype {
         println!(
             "{indent_}{}{}{}",
             cursor.node().kind(),
-            if cursor.node().kind() == node_kind!("ident") {
-                format!(" {}", &sarce[cursor.node().byte_range()])
+            if matches!(
+                cursor.node().kind(),
+                node_kind!("ident") | node_kind!("docComment")
+            ) {
+                format!(" {}", &sarce[cursor.node().byte_range()].trim())
             } else {
                 "".into()
             },
