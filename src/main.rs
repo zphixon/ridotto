@@ -55,9 +55,26 @@ type Atype {
     Boblinson
     func bob() {}
 }
-    func asdf(x: int, b: y) -> Asdf.Bsdf[Csdf, Dsdf] {}
+    func asdf(x: int, b: y) -> Asdf.Bsdf[Csdf, Dsdf] {
+        #let a = 3
+        #let b = 0.0e0
+
+        #let c = 3 - (a.e)[b]
+        #let c = 3 -  a.e [b]
+
+        let c = 3 -  a[b]  * !e
+        let c = 3 - (a[b]) * !e
+
+        #let c = -  a[b]
+        #let c = - (a[b])
+        #let c = (-a)[b]
+        #let a = b + true
+        #let a = 3
+    }
     
     "#;
+
+    let x = 0.3e0;
 
     let mut parser = tree_sitter::Parser::new();
     parser
