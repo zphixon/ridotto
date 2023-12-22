@@ -97,32 +97,38 @@ type Atype {
     let mut cursor = tree.walk();
     fn walk(sarce: &str, cursor: &mut tree_sitter::TreeCursor, indent: usize) {
         let indent_ = "|  ".repeat(indent);
-        println!(
-            "{indent_}{}{}{}",
-            cursor.node().kind(),
-            if matches!(
+
+        if cursor.node().is_named() && cursor.node().kind() != node_kind!("comment") {
+            println!(
+                "{indent_}{}{}{}",
                 cursor.node().kind(),
-                node_kind!("ident") | node_kind!("docComment")
-            ) {
-                format!(" {}", &sarce[cursor.node().byte_range()].trim())
-            } else {
-                "".into()
-            },
-            cursor
-                .field_name()
-                .map(|name| format!(" ({})", name))
-                .unwrap_or("".into()),
-        );
+                if matches!(
+                    cursor.node().kind(),
+                    node_kind!("ident") | node_kind!("docComment")
+                ) {
+                    format!(" {}", &sarce[cursor.node().byte_range()].trim())
+                } else {
+                    "".into()
+                },
+                cursor
+                    .field_name()
+                    .map(|name| format!(" ({})", name))
+                    .unwrap_or("".into()),
+            );
+        }
+
         if cursor.node().kind() == node_kind!("ERROR") {
             println!(
                 "{indent_}  OH SHITTTTT {:?}",
                 &sarce[cursor.node().byte_range()]
             );
         }
+
         if cursor.goto_first_child() {
             walk(sarce, cursor, indent + 1);
             cursor.goto_parent();
         }
+
         while cursor.goto_next_sibling() {
             walk(sarce, cursor, indent);
         }
