@@ -25,7 +25,8 @@ module.exports = grammar({
     comment: $ => seq('#', /.*/, '\n'),
     docComment: $ => seq('##', /.*/, '\n'),
 
-    typeExpr: $ => choice(
+    typeExpr: $ => $._typeExpr,
+    _typeExpr: $ => choice(
       $.normalType,
       $.funcType,
       $.refType,
@@ -33,22 +34,22 @@ module.exports = grammar({
 
     normalType: $ => seq(
       field('name', $.typeName),
-      field('instantiate', optional(_wrap(BRACKETS, $.typeExpr))),
+      field('instantiate', optional(_wrap(BRACKETS, $._typeExpr))),
     ),
 
     funcType: $ => _wrap(
       PARENS,
       seq(
-        field('args', optional($.typeExpr)),
+        field('args', optional($._typeExpr)),
         '->',
-        field('return', optional($.typeExpr)),
+        field('return', optional($._typeExpr)),
       )
     ),
 
-    refType: $ => seq('&', $.typeExpr),
+    refType: $ => seq('&', $._typeExpr),
 
     typeName: $ => _listNoTrail('.', $.ident),
-    typeArgs: $ => _list(',', $.typeExpr),
+    typeArgs: $ => _list(',', $._typeExpr),
 
     typeDecl: $ => seq(
       'type',
@@ -58,7 +59,7 @@ module.exports = grammar({
 
     innerOrAlias: $ => choice(
       $.typeInner,
-      field('alias', seq('=', $.typeExpr)),
+      field('alias', seq('=', $._typeExpr)),
     ),
 
     typeInner: $ => _wrap(BRACES,
@@ -77,22 +78,24 @@ module.exports = grammar({
     typeAnnotated: $ => seq(
       field('name', $.ident),
       ':',
-      field('type', $.typeExpr),
+      field('type', $._typeExpr),
     ),
 
-    funcHead: $ => seq(
+    funcHead: $ => $._funcHead,
+    _funcHead: $ => seq(
       field('mods', repeat(choice('async', 'const', 'export', 'builtin'))),
       'func',
       field('name', $.ident),
       field('args', _wrap(PARENS, optional(_list(',', $.typeAnnotated)))),
-      field('return', optional(seq('->', $.typeExpr))),
+      field('return', optional(seq('->', $._typeExpr))),
     ),
 
-    func: $ => seq($.funcHead, field('body', $.block)),
+    func: $ => seq($._funcHead, field('body', $.block)),
 
-    block: $ => _wrap(BRACES, repeat($.stmt)),
+    block: $ => _wrap(BRACES, repeat($._stmt)),
 
-    stmt: $ => seq(
+    stmt: $ => $._stmt,
+    _stmt: $ => seq(
       choice(
         $.binding,
         $.ifStmt,
@@ -105,10 +108,11 @@ module.exports = grammar({
       'let',
       field('name', $.ident),
       '=',
-      field('value', $.expr),
+      field('value', $._expr),
     ),
 
-    expr: $ => choice(
+    expr: $ => $._expr,
+    _expr: $ => choice(
       $.ident,
       $.dotAccess,
       $.number,
@@ -121,71 +125,71 @@ module.exports = grammar({
       $.ifExpr,
     ),
 
-    paren: $ => _wrap(PARENS, $.expr),
+    paren: $ => _wrap(PARENS, $._expr),
 
     dotAccess: $ => seq($.ident, repeat1(seq('.', $.ident))),
 
     // keep string tokens for operators
     unary: $ => prec(30, choice(
-      seq(field('op', '-'), $.expr),
-      seq(field('op', '+'), $.expr),
-      seq(field('op', '!'), $.expr),
-      seq(field('op', '&'), $.expr),
-      seq(field('op', '~'), $.expr),
-      seq(field('op', '@'), $.expr),
-      seq(field('op', '^'), $.expr),
-      seq(field('op', 'await'), $.expr),
-      seq(field('op', 'yield'), $.expr),
+      seq(field('op', '-'), $._expr),
+      seq(field('op', '+'), $._expr),
+      seq(field('op', '!'), $._expr),
+      seq(field('op', '&'), $._expr),
+      seq(field('op', '~'), $._expr),
+      seq(field('op', '@'), $._expr),
+      seq(field('op', '^'), $._expr),
+      seq(field('op', 'await'), $._expr),
+      seq(field('op', 'yield'), $._expr),
     )),
 
     binary: $ => choice(
       $.call,
       $.arrayIndex,
       prec.left(20, seq(
-        field('lhs', $.expr),
+        field('lhs', $._expr),
         field('op', choice('*', '/', '%')),
-        field('rhs', $.expr))
+        field('rhs', $._expr))
       ),
       prec.left(19, seq(
-        field('lhs', $.expr),
+        field('lhs', $._expr),
         field('op', choice('+', '-')),
-        field('rhs', $.expr))
+        field('rhs', $._expr))
       ),
       prec.left(18, seq(
-        field('lhs', $.expr),
+        field('lhs', $._expr),
         field('op', choice('^', '&', '|', '<<', '>>')),
-        field('rhs', $.expr))
+        field('rhs', $._expr))
       ),
       prec.left(17, seq(
-        field('lhs', $.expr),
+        field('lhs', $._expr),
         field('op', choice('>', '<', '>=', '<=', '==', '!=', '<>', 'in')),
-        field('rhs', $.expr))
+        field('rhs', $._expr))
       ),
       prec.left(16, seq(
-        field('lhs', $.expr),
+        field('lhs', $._expr),
         field('op', choice('and', '&&')),
-        field('rhs', $.expr))
+        field('rhs', $._expr))
       ),
       prec.left(15, seq(
-        field('lhs', $.expr),
+        field('lhs', $._expr),
         field('op', choice('or', '||')),
-        field('rhs', $.expr))
+        field('rhs', $._expr))
       ),
     ),
 
     arrayIndex: $ => prec(40, seq(
-      field('array', $.expr),
-      field('offset', _wrap(BRACKETS, $.expr)),
+      field('array', $._expr),
+      field('offset', _wrap(BRACKETS, $._expr)),
     )),
 
     call: $ => prec(40, seq(
-      field('callee', $.expr),
-      field('args', _wrap(PARENS, optional(_list(',', $.expr)))),
+      field('callee', $._expr),
+      field('args', _wrap(PARENS, optional(_list(',', $._expr)))),
     )),
 
     ifExpr: $ => seq(
       'if',
-      field('cond', $.expr),
+      field('cond', $._expr),
       field('true', $.block),
       'else',
       field('false', $.block),
@@ -193,7 +197,7 @@ module.exports = grammar({
 
     ifStmt: $ => seq(
       'if',
-      field('cond', $.expr),
+      field('cond', $._expr),
       field('true', $.block),
       optional(seq('else', field('false', $.block))),
     ),

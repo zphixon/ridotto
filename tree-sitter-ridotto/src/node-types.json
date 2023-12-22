@@ -8,7 +8,43 @@
         "required": true,
         "types": [
           {
-            "type": "expr",
+            "type": "binary",
+            "named": true
+          },
+          {
+            "type": "block",
+            "named": true
+          },
+          {
+            "type": "bool",
+            "named": true
+          },
+          {
+            "type": "dotAccess",
+            "named": true
+          },
+          {
+            "type": "ident",
+            "named": true
+          },
+          {
+            "type": "ifExpr",
+            "named": true
+          },
+          {
+            "type": "number",
+            "named": true
+          },
+          {
+            "type": "paren",
+            "named": true
+          },
+          {
+            "type": "string",
+            "named": true
+          },
+          {
+            "type": "unary",
             "named": true
           }
         ]
@@ -26,7 +62,43 @@
             "named": false
           },
           {
-            "type": "expr",
+            "type": "binary",
+            "named": true
+          },
+          {
+            "type": "block",
+            "named": true
+          },
+          {
+            "type": "bool",
+            "named": true
+          },
+          {
+            "type": "dotAccess",
+            "named": true
+          },
+          {
+            "type": "ident",
+            "named": true
+          },
+          {
+            "type": "ifExpr",
+            "named": true
+          },
+          {
+            "type": "number",
+            "named": true
+          },
+          {
+            "type": "paren",
+            "named": true
+          },
+          {
+            "type": "string",
+            "named": true
+          },
+          {
+            "type": "unary",
             "named": true
           }
         ]
@@ -42,7 +114,43 @@
         "required": false,
         "types": [
           {
-            "type": "expr",
+            "type": "binary",
+            "named": true
+          },
+          {
+            "type": "block",
+            "named": true
+          },
+          {
+            "type": "bool",
+            "named": true
+          },
+          {
+            "type": "dotAccess",
+            "named": true
+          },
+          {
+            "type": "ident",
+            "named": true
+          },
+          {
+            "type": "ifExpr",
+            "named": true
+          },
+          {
+            "type": "number",
+            "named": true
+          },
+          {
+            "type": "paren",
+            "named": true
+          },
+          {
+            "type": "string",
+            "named": true
+          },
+          {
+            "type": "unary",
             "named": true
           }
         ]
@@ -146,7 +254,43 @@
         "required": false,
         "types": [
           {
-            "type": "expr",
+            "type": "binary",
+            "named": true
+          },
+          {
+            "type": "block",
+            "named": true
+          },
+          {
+            "type": "bool",
+            "named": true
+          },
+          {
+            "type": "dotAccess",
+            "named": true
+          },
+          {
+            "type": "ident",
+            "named": true
+          },
+          {
+            "type": "ifExpr",
+            "named": true
+          },
+          {
+            "type": "number",
+            "named": true
+          },
+          {
+            "type": "paren",
+            "named": true
+          },
+          {
+            "type": "string",
+            "named": true
+          },
+          {
+            "type": "unary",
             "named": true
           }
         ]
@@ -186,7 +330,43 @@
         "required": true,
         "types": [
           {
-            "type": "expr",
+            "type": "binary",
+            "named": true
+          },
+          {
+            "type": "block",
+            "named": true
+          },
+          {
+            "type": "bool",
+            "named": true
+          },
+          {
+            "type": "dotAccess",
+            "named": true
+          },
+          {
+            "type": "ident",
+            "named": true
+          },
+          {
+            "type": "ifExpr",
+            "named": true
+          },
+          {
+            "type": "number",
+            "named": true
+          },
+          {
+            "type": "paren",
+            "named": true
+          },
+          {
+            "type": "string",
+            "named": true
+          },
+          {
+            "type": "unary",
             "named": true
           }
         ]
@@ -202,7 +382,15 @@
       "required": false,
       "types": [
         {
-          "type": "stmt",
+          "type": "binding",
+          "named": true
+        },
+        {
+          "type": "expr",
+          "named": true
+        },
+        {
+          "type": "ifStmt",
           "named": true
         }
       ]
@@ -229,7 +417,43 @@
             "named": false
           },
           {
-            "type": "expr",
+            "type": "binary",
+            "named": true
+          },
+          {
+            "type": "block",
+            "named": true
+          },
+          {
+            "type": "bool",
+            "named": true
+          },
+          {
+            "type": "dotAccess",
+            "named": true
+          },
+          {
+            "type": "ident",
+            "named": true
+          },
+          {
+            "type": "ifExpr",
+            "named": true
+          },
+          {
+            "type": "number",
+            "named": true
+          },
+          {
+            "type": "paren",
+            "named": true
+          },
+          {
+            "type": "string",
+            "named": true
+          },
+          {
+            "type": "unary",
             "named": true
           }
         ]
@@ -239,7 +463,43 @@
         "required": true,
         "types": [
           {
-            "type": "expr",
+            "type": "binary",
+            "named": true
+          },
+          {
+            "type": "block",
+            "named": true
+          },
+          {
+            "type": "bool",
+            "named": true
+          },
+          {
+            "type": "dotAccess",
+            "named": true
+          },
+          {
+            "type": "ident",
+            "named": true
+          },
+          {
+            "type": "ifExpr",
+            "named": true
+          },
+          {
+            "type": "number",
+            "named": true
+          },
+          {
+            "type": "paren",
+            "named": true
+          },
+          {
+            "type": "string",
+            "named": true
+          },
+          {
+            "type": "unary",
             "named": true
           }
         ]
@@ -326,32 +586,6 @@
     "type": "func",
     "named": true,
     "fields": {
-      "body": {
-        "multiple": false,
-        "required": true,
-        "types": [
-          {
-            "type": "block",
-            "named": true
-          }
-        ]
-      }
-    },
-    "children": {
-      "multiple": false,
-      "required": true,
-      "types": [
-        {
-          "type": "funcHead",
-          "named": true
-        }
-      ]
-    }
-  },
-  {
-    "type": "funcHead",
-    "named": true,
-    "fields": {
       "args": {
         "multiple": true,
         "required": true,
@@ -370,6 +604,16 @@
           },
           {
             "type": "typeAnnotated",
+            "named": true
+          }
+        ]
+      },
+      "body": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "block",
             "named": true
           }
         ]
@@ -415,7 +659,15 @@
             "named": false
           },
           {
-            "type": "typeExpr",
+            "type": "funcType",
+            "named": true
+          },
+          {
+            "type": "normalType",
+            "named": true
+          },
+          {
+            "type": "refType",
             "named": true
           }
         ]
@@ -431,7 +683,15 @@
         "required": false,
         "types": [
           {
-            "type": "typeExpr",
+            "type": "funcType",
+            "named": true
+          },
+          {
+            "type": "normalType",
+            "named": true
+          },
+          {
+            "type": "refType",
             "named": true
           }
         ]
@@ -441,7 +701,15 @@
         "required": false,
         "types": [
           {
-            "type": "typeExpr",
+            "type": "funcType",
+            "named": true
+          },
+          {
+            "type": "normalType",
+            "named": true
+          },
+          {
+            "type": "refType",
             "named": true
           }
         ]
@@ -457,7 +725,43 @@
         "required": true,
         "types": [
           {
-            "type": "expr",
+            "type": "binary",
+            "named": true
+          },
+          {
+            "type": "block",
+            "named": true
+          },
+          {
+            "type": "bool",
+            "named": true
+          },
+          {
+            "type": "dotAccess",
+            "named": true
+          },
+          {
+            "type": "ident",
+            "named": true
+          },
+          {
+            "type": "ifExpr",
+            "named": true
+          },
+          {
+            "type": "number",
+            "named": true
+          },
+          {
+            "type": "paren",
+            "named": true
+          },
+          {
+            "type": "string",
+            "named": true
+          },
+          {
+            "type": "unary",
             "named": true
           }
         ]
@@ -493,7 +797,43 @@
         "required": true,
         "types": [
           {
-            "type": "expr",
+            "type": "binary",
+            "named": true
+          },
+          {
+            "type": "block",
+            "named": true
+          },
+          {
+            "type": "bool",
+            "named": true
+          },
+          {
+            "type": "dotAccess",
+            "named": true
+          },
+          {
+            "type": "ident",
+            "named": true
+          },
+          {
+            "type": "ifExpr",
+            "named": true
+          },
+          {
+            "type": "number",
+            "named": true
+          },
+          {
+            "type": "paren",
+            "named": true
+          },
+          {
+            "type": "string",
+            "named": true
+          },
+          {
+            "type": "unary",
             "named": true
           }
         ]
@@ -533,7 +873,15 @@
             "named": false
           },
           {
-            "type": "typeExpr",
+            "type": "funcType",
+            "named": true
+          },
+          {
+            "type": "normalType",
+            "named": true
+          },
+          {
+            "type": "refType",
             "named": true
           }
         ]
@@ -567,7 +915,15 @@
             "named": false
           },
           {
-            "type": "typeExpr",
+            "type": "funcType",
+            "named": true
+          },
+          {
+            "type": "normalType",
+            "named": true
+          },
+          {
+            "type": "refType",
             "named": true
           }
         ]
@@ -593,7 +949,43 @@
       "required": true,
       "types": [
         {
-          "type": "expr",
+          "type": "binary",
+          "named": true
+        },
+        {
+          "type": "block",
+          "named": true
+        },
+        {
+          "type": "bool",
+          "named": true
+        },
+        {
+          "type": "dotAccess",
+          "named": true
+        },
+        {
+          "type": "ident",
+          "named": true
+        },
+        {
+          "type": "ifExpr",
+          "named": true
+        },
+        {
+          "type": "number",
+          "named": true
+        },
+        {
+          "type": "paren",
+          "named": true
+        },
+        {
+          "type": "string",
+          "named": true
+        },
+        {
+          "type": "unary",
           "named": true
         }
       ]
@@ -608,7 +1000,15 @@
       "required": true,
       "types": [
         {
-          "type": "typeExpr",
+          "type": "funcType",
+          "named": true
+        },
+        {
+          "type": "normalType",
+          "named": true
+        },
+        {
+          "type": "refType",
           "named": true
         }
       ]
@@ -638,29 +1038,6 @@
     }
   },
   {
-    "type": "stmt",
-    "named": true,
-    "fields": {},
-    "children": {
-      "multiple": false,
-      "required": true,
-      "types": [
-        {
-          "type": "binding",
-          "named": true
-        },
-        {
-          "type": "expr",
-          "named": true
-        },
-        {
-          "type": "ifStmt",
-          "named": true
-        }
-      ]
-    }
-  },
-  {
     "type": "typeAnnotated",
     "named": true,
     "fields": {
@@ -679,7 +1056,15 @@
         "required": true,
         "types": [
           {
-            "type": "typeExpr",
+            "type": "funcType",
+            "named": true
+          },
+          {
+            "type": "normalType",
+            "named": true
+          },
+          {
+            "type": "refType",
             "named": true
           }
         ]
@@ -707,29 +1092,6 @@
       "types": [
         {
           "type": "innerOrAlias",
-          "named": true
-        }
-      ]
-    }
-  },
-  {
-    "type": "typeExpr",
-    "named": true,
-    "fields": {},
-    "children": {
-      "multiple": false,
-      "required": true,
-      "types": [
-        {
-          "type": "funcType",
-          "named": true
-        },
-        {
-          "type": "normalType",
-          "named": true
-        },
-        {
-          "type": "refType",
           "named": true
         }
       ]
@@ -872,7 +1234,43 @@
       "required": true,
       "types": [
         {
-          "type": "expr",
+          "type": "binary",
+          "named": true
+        },
+        {
+          "type": "block",
+          "named": true
+        },
+        {
+          "type": "bool",
+          "named": true
+        },
+        {
+          "type": "dotAccess",
+          "named": true
+        },
+        {
+          "type": "ident",
+          "named": true
+        },
+        {
+          "type": "ifExpr",
+          "named": true
+        },
+        {
+          "type": "number",
+          "named": true
+        },
+        {
+          "type": "paren",
+          "named": true
+        },
+        {
+          "type": "string",
+          "named": true
+        },
+        {
+          "type": "unary",
           "named": true
         }
       ]
