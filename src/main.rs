@@ -43,6 +43,15 @@ fn main(args: List[&String]) {
     let src = "type Asdf";
 
     let sarce = r#"
+
+    async builtin export func main() -> (Void -> &Void) {
+        let x = await a - b
+        let x = a - 2
+        let y = if 3 {
+            let b = c
+            c
+        } else { nope }
+    }
     
 type Atype {
     y: bob.frob[i.do.not.like.green.eggs.and.ham]
@@ -55,22 +64,24 @@ type Atype {
     Boblinson
     func bob() {}
 }
-    func asdf(x: int, b: y) -> Asdf.Bsdf[Csdf, Dsdf] {
-        #let a = 3
-        #let b = 0.0e0
 
-        #let c = 3 - (a.e)[b]
-        #let c = 3 -  a.e [b]
-
-        let c = 3 -  a[b]  * !e
-        let c = 3 - (a[b]) * !e
-
-        #let c = -  a[b]
-        #let c = - (a[b])
-        #let c = (-a)[b]
-        #let a = b + true
-        #let a = 3
-    }
+#    func asdf(x: int, b: y) -> Asdf.Bsdf[Csdf, Dsdf,] {
+#        #let a = 3
+#        #let b = 0.0e0
+#
+#        #let c = 3 - (a.e)[b]
+#        #let c = 3 -  a.e [b]
+#
+#        #let c = 3 -  (3+4)[b]  * !e
+#        #let c = 3 - ((3+4)[b]) * !e
+#        #2 + 3
+#
+#        #let c = -  a[b]
+#        #let c = - (a[b])
+#        #let c = (-a)[b]
+#        #let a = b + true
+#        #let a = 3
+#    }
     
     "#;
 

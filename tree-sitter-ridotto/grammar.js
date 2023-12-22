@@ -1,107 +1,107 @@
+const PARENS = ['(', ')'];
+const BRACKETS = ['[', ']'];
+const BRACES = ['{', '}'];
+
+const _list = (sep, rule) => seq(rule, repeat(seq(sep, rule)), optional(sep));
+const _listMaybeSep = (sep, rule) => seq(rule, repeat(seq(optional(sep), rule)), optional(sep));
+const _listNoTrail = (sep, rule) => seq(rule, repeat(seq(sep, rule)));
+const _wrap = (w, rule) => seq(w[0], rule, w[1]);
+
 module.exports = grammar({
   name: 'ridotto',
 
   word: $ => $.ident,
   extras: $ => [
     /\s+/,
-    $._comment,
+    $.comment,
     $.docComment,
   ],
 
   rules: {
     source_file: $ => repeat(choice($.typeDecl, $.func, $.klass)),
 
-    _lparen: $ => '(',
-    _rparen: $ => ')',
-    _lbrack: $ => '[',
-    _rbrack: $ => ']',
-    _lbrace: $ => '{',
-    _rbrace: $ => '}',
-    _comma: $ => ',',
-    _period: $ => '.',
-    _eq: $ => '=',
-    _colon: $ => ':',
-    _arrow: $ => '->',
-    _pound: $ => '#',
-    _poundPound: $ => '##',
-    _newline: $ => '\n',
-    _typeKw: $ => 'type',
-    _asyncKw: $ => 'async',
-    _constKw: $ => 'const',
-    _exportKw: $ => 'export',
-    _builtinKw: $ => 'builtin',
-    _funcKw: $ => 'func',
-    _classKw: $ => 'class',
-    _returnKw: $ => 'return',
-    _breakKw: $ => 'break',
-    _continueKw: $ => 'continue',
-    _letKw: $ => 'let',
+    comment: $ => seq('#', /.*/, '\n'),
+    docComment: $ => seq('##', /.*/, '\n'),
 
-    _comment: $ => seq($._pound, /.*/, $._newline),
-    docComment: $ => seq($._poundPound, /.*/, $._newline),
-
-    _typeArgs: $ => seq($.typeExpr, repeat(seq($._comma, $.typeExpr))),
-    typeExpr: $ => seq(
-      field('name', $.typeName),
-      field('instantiate', optional(seq($._lbrack, $._typeArgs, $._rbrack))),
+    typeExpr: $ => choice(
+      $.normalType,
+      $.funcType,
+      $.refType,
     ),
-    typeName: $ => seq($.ident, repeat(seq($._period, $.ident))),
+    typeName: $ => _listNoTrail('.', $.ident),
+    normalType: $ => seq(
+      field('name', $.typeName),
+      field('instantiate', optional(_wrap(BRACKETS, $.typeExpr))),
+    ),
+    funcType: $ => _wrap(
+      PARENS,
+      seq(
+        field('args', optional($.typeExpr)),
+        '->',
+        field('return', optional($.typeExpr)),
+      )
+    ),
+    typeArgs: $ => _list(',', $.typeExpr),
+    refType: $ => seq('&', $.typeExpr),
 
     typeDecl: $ => seq(
-      $._typeKw,
+      'type',
       field('name', $.ident),
-      optional($._innerOrAlias),
+      optional($.innerOrAlias),
     ),
 
-    _innerOrAlias: $ => choice(
-      $._typeInner,
-      field('alias', seq($._eq, $.typeExpr)),
+    innerOrAlias: $ => choice(
+      $.typeInner,
+      field('alias', seq('=', $.typeExpr)),
     ),
 
-    _typeInner: $ => seq($._lbrace,
-      field('property', repeat($.typeAnnotated)),
-      field('variant', repeat($.typeVariant)),
-      field('method', repeat($.func)),
-    $._rbrace),
+    typeInner: $ => _wrap(BRACES,
+      seq(
+        field('property', optional(_listMaybeSep(',', $.typeAnnotated))),
+        field('variant', optional(_listMaybeSep(',', $.typeVariant))),
+        field('method', repeat($.func)),
+      ),
+    ),
 
     typeVariant: $ => seq(
       field('name', $.ident),
-      optional($._innerOrAlias),
+      optional($.innerOrAlias),
     ),
 
     typeAnnotated: $ => seq(
       field('name', $.ident),
-      $._colon,
+      ':',
       field('type', $.typeExpr),
     ),
 
     funcHead: $ => seq(
-      repeat(choice($._asyncKw, $._constKw, $._exportKw, $._builtinKw)), $._funcKw,
+      field('mods', repeat(choice('async', 'const', 'export', 'builtin'))),
+      'func',
       field('name', $.ident),
-      $._lparen, field('args', optional(seq(
-        $.typeAnnotated,
-        repeat(seq($._comma, $.typeAnnotated)),
-      ))), $._rparen,
-      field('return', optional(seq($._arrow, $.typeExpr))),
+      field('args', _wrap(PARENS, optional(_list(',', $.typeAnnotated)))),
+      field('return', optional(seq('->', $.typeExpr))),
     ),
 
     func: $ => seq($.funcHead, field('body', $.block)),
 
-    block: $ => seq($._lbrace, repeat($._stmt), $._rbrace),
+    block: $ => _wrap(BRACES, repeat($.stmt)),
 
-    _stmt: $ => choice(
-      $.binding,
+    stmt: $ => seq(
+      choice(
+        $.binding,
+        $.expr,
+      ),
+      repeat(','),
     ),
 
     binding: $ => seq(
-      $._letKw,
+      'let',
       field('name', $.ident),
-      $._eq,
-      field('value', $._expr),
+      '=',
+      field('value', $.expr),
     ),
 
-    expr: $ => $._expr,
-    _expr: $ => choice(
+    expr: $ => choice(
       $.ident,
       $.dotAccess,
       $.number,
@@ -109,48 +109,82 @@ module.exports = grammar({
       $.bool,
       $.unary,
       $.binary,
-      $._paren,
+      $.paren,
+      $.block,
+      $.ifExpr,
     ),
 
-    _paren: $ => seq($._lparen, $._expr, $._rparen),
+    paren: $ => _wrap(PARENS, $.expr),
 
-    dotAccess: $ => seq($.ident, repeat1(seq($._period, $.ident))),
+    dotAccess: $ => seq($.ident, repeat1(seq('.', $.ident))),
 
     // keep string tokens for operators
     unary: $ => prec(30, choice(
-      seq(field('op', '-'), $._expr),
-      seq(field('op', '+'), $._expr),
-      seq(field('op', '!'), $._expr),
-      seq(field('op', '&'), $._expr),
+      seq(field('op', '-'), $.expr),
+      seq(field('op', '+'), $.expr),
+      seq(field('op', '!'), $.expr),
+      seq(field('op', '&'), $.expr),
+      seq(field('op', '~'), $.expr),
+      seq(field('op', '@'), $.expr),
+      seq(field('op', '^'), $.expr),
+      seq(field('op', 'await'), $.expr),
+      seq(field('op', 'yield'), $.expr),
     )),
 
     binary: $ => choice(
+      $.call,
       $.arrayIndex,
       prec.left(20, seq(
-        field('lhs', $._expr),
+        field('lhs', $.expr),
+        field('op', choice('*', '/', '%')),
+        field('rhs', $.expr))
+      ),
+      prec.left(19, seq(
+        field('lhs', $.expr),
+        field('op', choice('+', '-')),
+        field('rhs', $.expr))
+      ),
+      prec.left(18, seq(
+        field('lhs', $.expr),
         field('op', choice('^', '&', '|', '<<', '>>')),
-        field('rhs', $._expr))
+        field('rhs', $.expr))
+      ),
+      prec.left(17, seq(
+        field('lhs', $.expr),
+        field('op', choice('>', '<', '>=', '<=', '==', '!=', '<>', 'in')),
+        field('rhs', $.expr))
+      ),
+      prec.left(16, seq(
+        field('lhs', $.expr),
+        field('op', choice('and', '&&')),
+        field('rhs', $.expr))
       ),
       prec.left(15, seq(
-        field('lhs', $._expr),
-        field('op', choice('*', '/')),
-        field('rhs', $._expr))
-      ),
-      prec.left(10, seq(
-        field('lhs', $._expr),
-        field('op', choice('+', '-')),
-        field('rhs', $._expr))
+        field('lhs', $.expr),
+        field('op', choice('or', '||')),
+        field('rhs', $.expr))
       ),
     ),
 
     arrayIndex: $ => prec(40, seq(
-      field('array', $._expr),
-      $._lbrack,
-      field('offset', $._expr),
-      $._rbrack,
+      field('array', $.expr),
+      field('offset', _wrap(BRACKETS, $.expr)),
     )),
 
-    klass: $ => $._classKw,
+    call: $ => prec(40, seq(
+      field('callee', $.expr),
+      field('args', _wrap(PARENS, optional(_list(',', $.expr)))),
+    )),
+
+    ifExpr: $ => seq(
+      'if',
+      field('cond', $.expr),
+      field('true', $.block),
+      'else',
+      field('false', $.block),
+    ),
+
+    klass: $ => 'class',
 
     ident: $ => /[a-zA-Z_]+[a-zA-Z0-9_]*/,
     number: $ => /(\+|-)?[0-9]+(\.[0-9]+)?([eE][0-9]+)?/,
