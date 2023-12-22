@@ -1,6 +1,6 @@
 const PARENS = ['(', ')'];
-const BRACKETS = ['[', ']'];
-const BRACES = ['{', '}'];
+const SQUARES = ['[', ']'];
+const CURLIES = ['{', '}'];
 
 const _list = (sep, rule) => seq(rule, repeat(seq(sep, rule)), optional(sep));
 const _listMaybeSep = (sep, rule) => seq(rule, repeat(seq(optional(sep), rule)), optional(sep));
@@ -17,7 +17,12 @@ module.exports = grammar({
     $.docComment,
   ],
 
-  conflicts: $ => [[$.ifExpr, $.ifStmt]],
+  conflicts: $ => [
+    [$._pattern, $.typeName],
+    [$._expr, $.typeName],
+    [$.destructure, $.variant],
+    [$.typeName, $.dotAccess],
+  ],
 
   rules: {
     source_file: $ => repeat(choice($.typeDecl, $.func, $.klass)),
@@ -34,7 +39,7 @@ module.exports = grammar({
 
     normalType: $ => seq(
       field('name', $.typeName),
-      field('instantiate', optional(_wrap(BRACKETS, $._typeExpr))),
+      field('instantiate', optional(_wrap(SQUARES, $._typeExpr))),
     ),
 
     funcType: $ => _wrap(
@@ -54,15 +59,15 @@ module.exports = grammar({
     typeDecl: $ => seq(
       'type',
       field('name', $.ident),
-      optional($.innerOrAlias),
+      optional($._innerOrAlias),
     ),
 
-    innerOrAlias: $ => choice(
+    _innerOrAlias: $ => choice(
       $.typeInner,
-      field('alias', seq('=', $._typeExpr)),
+      $.typeAlias,
     ),
 
-    typeInner: $ => _wrap(BRACES,
+    typeInner: $ => _wrap(CURLIES,
       seq(
         field('property', optional(_listMaybeSep(',', $.typeAnnotated))),
         field('variant', optional(_listMaybeSep(',', $.typeVariant))),
@@ -70,9 +75,11 @@ module.exports = grammar({
       ),
     ),
 
+    typeAlias: $ => seq('=', $._typeExpr),
+
     typeVariant: $ => seq(
       field('name', $.ident),
-      optional($.innerOrAlias),
+      optional($._innerOrAlias),
     ),
 
     typeAnnotated: $ => seq(
@@ -92,13 +99,12 @@ module.exports = grammar({
 
     func: $ => seq($._funcHead, field('body', $.block)),
 
-    block: $ => _wrap(BRACES, repeat($._stmt)),
+    block: $ => _wrap(CURLIES, repeat($._stmt)),
 
     stmt: $ => $._stmt,
     _stmt: $ => seq(
       choice(
         $.binding,
-        $.ifStmt,
         $.expr,
       ),
       repeat(','),
@@ -106,7 +112,7 @@ module.exports = grammar({
 
     binding: $ => seq(
       'let',
-      field('name', $.ident),
+      field('pattern', $._pattern),
       '=',
       field('value', $._expr),
     ),
@@ -123,6 +129,8 @@ module.exports = grammar({
       $.paren,
       $.block,
       $.ifExpr,
+      $.matchExpr,
+      $.instantiate,
     ),
 
     paren: $ => _wrap(PARENS, $._expr),
@@ -179,7 +187,7 @@ module.exports = grammar({
 
     arrayIndex: $ => prec(40, seq(
       field('array', $._expr),
-      field('offset', _wrap(BRACKETS, $._expr)),
+      field('offset', _wrap(SQUARES, $._expr)),
     )),
 
     call: $ => prec(40, seq(
@@ -191,16 +199,59 @@ module.exports = grammar({
       'if',
       field('cond', $._expr),
       field('true', $.block),
-      'else',
-      field('false', $.block),
-    ),
-
-    ifStmt: $ => seq(
-      'if',
-      field('cond', $._expr),
-      field('true', $.block),
       optional(seq('else', field('false', $.block))),
     ),
+
+    matchExpr: $ => seq(
+      'match',
+      field('disc', $._expr),
+      field('arms', _wrap(CURLIES, _listMaybeSep(',', $.matchArm))),
+    ),
+
+    matchArm: $ => seq(
+      field('pattern', $._pattern),
+      field('guard', optional(seq('if', $._expr))),
+      field('body', $.block),
+    ),
+
+    instantiate: $ => seq(
+      field('type', $.typeName),
+      _wrap(CURLIES,
+        _list(',', seq(
+          field('name', $.ident),
+          optional(seq(':', field('value', $._expr))),
+        ))
+      ),
+    ),
+
+    pattern: $ => $._pattern,
+    _pattern: $ => choice(
+      $.wildcard,
+      $.ident,
+      $.alternate,
+      $.destructure,
+      $.variant,
+    ),
+
+    wildcard: $ => '_',
+
+    alternate: $ => prec.left(50, seq(
+      field('lhs', $._pattern),
+      '|',
+      field('rhs', $._pattern),
+    )),
+
+    destructure: $ => seq(
+      field('type', $.typeName),
+      field('fields', _wrap(CURLIES, seq(
+        _list(',', $.ident),
+        optional($.rest),
+      ))),
+    ),
+
+    rest: $ => '..',
+
+    variant: $ => $.typeName,
 
     klass: $ => 'class',
 

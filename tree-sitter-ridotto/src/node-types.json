@@ -1,5 +1,63 @@
 [
   {
+    "type": "alternate",
+    "named": true,
+    "fields": {
+      "lhs": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "alternate",
+            "named": true
+          },
+          {
+            "type": "destructure",
+            "named": true
+          },
+          {
+            "type": "ident",
+            "named": true
+          },
+          {
+            "type": "variant",
+            "named": true
+          },
+          {
+            "type": "wildcard",
+            "named": true
+          }
+        ]
+      },
+      "rhs": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "alternate",
+            "named": true
+          },
+          {
+            "type": "destructure",
+            "named": true
+          },
+          {
+            "type": "ident",
+            "named": true
+          },
+          {
+            "type": "variant",
+            "named": true
+          },
+          {
+            "type": "wildcard",
+            "named": true
+          }
+        ]
+      }
+    }
+  },
+  {
     "type": "arrayIndex",
     "named": true,
     "fields": {
@@ -29,6 +87,14 @@
           },
           {
             "type": "ifExpr",
+            "named": true
+          },
+          {
+            "type": "instantiate",
+            "named": true
+          },
+          {
+            "type": "matchExpr",
             "named": true
           },
           {
@@ -86,6 +152,14 @@
             "named": true
           },
           {
+            "type": "instantiate",
+            "named": true
+          },
+          {
+            "type": "matchExpr",
+            "named": true
+          },
+          {
             "type": "number",
             "named": true
           },
@@ -135,6 +209,14 @@
           },
           {
             "type": "ifExpr",
+            "named": true
+          },
+          {
+            "type": "instantiate",
+            "named": true
+          },
+          {
+            "type": "matchExpr",
             "named": true
           },
           {
@@ -278,6 +360,14 @@
             "named": true
           },
           {
+            "type": "instantiate",
+            "named": true
+          },
+          {
+            "type": "matchExpr",
+            "named": true
+          },
+          {
             "type": "number",
             "named": true
           },
@@ -315,12 +405,28 @@
     "type": "binding",
     "named": true,
     "fields": {
-      "name": {
+      "pattern": {
         "multiple": false,
         "required": true,
         "types": [
           {
+            "type": "alternate",
+            "named": true
+          },
+          {
+            "type": "destructure",
+            "named": true
+          },
+          {
             "type": "ident",
+            "named": true
+          },
+          {
+            "type": "variant",
+            "named": true
+          },
+          {
+            "type": "wildcard",
             "named": true
           }
         ]
@@ -351,6 +457,14 @@
           },
           {
             "type": "ifExpr",
+            "named": true
+          },
+          {
+            "type": "instantiate",
+            "named": true
+          },
+          {
+            "type": "matchExpr",
             "named": true
           },
           {
@@ -387,10 +501,6 @@
         },
         {
           "type": "expr",
-          "named": true
-        },
-        {
-          "type": "ifStmt",
           "named": true
         }
       ]
@@ -441,6 +551,14 @@
             "named": true
           },
           {
+            "type": "instantiate",
+            "named": true
+          },
+          {
+            "type": "matchExpr",
+            "named": true
+          },
+          {
             "type": "number",
             "named": true
           },
@@ -487,6 +605,14 @@
             "named": true
           },
           {
+            "type": "instantiate",
+            "named": true
+          },
+          {
+            "type": "matchExpr",
+            "named": true
+          },
+          {
             "type": "number",
             "named": true
           },
@@ -510,6 +636,48 @@
     "type": "comment",
     "named": true,
     "fields": {}
+  },
+  {
+    "type": "destructure",
+    "named": true,
+    "fields": {
+      "fields": {
+        "multiple": true,
+        "required": true,
+        "types": [
+          {
+            "type": ",",
+            "named": false
+          },
+          {
+            "type": "ident",
+            "named": true
+          },
+          {
+            "type": "rest",
+            "named": true
+          },
+          {
+            "type": "{",
+            "named": false
+          },
+          {
+            "type": "}",
+            "named": false
+          }
+        ]
+      },
+      "type": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "typeName",
+            "named": true
+          }
+        ]
+      }
+    }
   },
   {
     "type": "docComment",
@@ -561,6 +729,14 @@
         },
         {
           "type": "ifExpr",
+          "named": true
+        },
+        {
+          "type": "instantiate",
+          "named": true
+        },
+        {
+          "type": "matchExpr",
           "named": true
         },
         {
@@ -749,6 +925,14 @@
             "named": true
           },
           {
+            "type": "instantiate",
+            "named": true
+          },
+          {
+            "type": "matchExpr",
+            "named": true
+          },
+          {
             "type": "number",
             "named": true
           },
@@ -768,7 +952,7 @@
       },
       "false": {
         "multiple": false,
-        "required": true,
+        "required": false,
         "types": [
           {
             "type": "block",
@@ -789,10 +973,212 @@
     }
   },
   {
-    "type": "ifStmt",
+    "type": "instantiate",
     "named": true,
     "fields": {
-      "cond": {
+      "name": {
+        "multiple": true,
+        "required": true,
+        "types": [
+          {
+            "type": "ident",
+            "named": true
+          }
+        ]
+      },
+      "type": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "typeName",
+            "named": true
+          }
+        ]
+      },
+      "value": {
+        "multiple": true,
+        "required": false,
+        "types": [
+          {
+            "type": "binary",
+            "named": true
+          },
+          {
+            "type": "block",
+            "named": true
+          },
+          {
+            "type": "bool",
+            "named": true
+          },
+          {
+            "type": "dotAccess",
+            "named": true
+          },
+          {
+            "type": "ident",
+            "named": true
+          },
+          {
+            "type": "ifExpr",
+            "named": true
+          },
+          {
+            "type": "instantiate",
+            "named": true
+          },
+          {
+            "type": "matchExpr",
+            "named": true
+          },
+          {
+            "type": "number",
+            "named": true
+          },
+          {
+            "type": "paren",
+            "named": true
+          },
+          {
+            "type": "string",
+            "named": true
+          },
+          {
+            "type": "unary",
+            "named": true
+          }
+        ]
+      }
+    }
+  },
+  {
+    "type": "matchArm",
+    "named": true,
+    "fields": {
+      "body": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "block",
+            "named": true
+          }
+        ]
+      },
+      "guard": {
+        "multiple": true,
+        "required": false,
+        "types": [
+          {
+            "type": "binary",
+            "named": true
+          },
+          {
+            "type": "block",
+            "named": true
+          },
+          {
+            "type": "bool",
+            "named": true
+          },
+          {
+            "type": "dotAccess",
+            "named": true
+          },
+          {
+            "type": "ident",
+            "named": true
+          },
+          {
+            "type": "if",
+            "named": false
+          },
+          {
+            "type": "ifExpr",
+            "named": true
+          },
+          {
+            "type": "instantiate",
+            "named": true
+          },
+          {
+            "type": "matchExpr",
+            "named": true
+          },
+          {
+            "type": "number",
+            "named": true
+          },
+          {
+            "type": "paren",
+            "named": true
+          },
+          {
+            "type": "string",
+            "named": true
+          },
+          {
+            "type": "unary",
+            "named": true
+          }
+        ]
+      },
+      "pattern": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "alternate",
+            "named": true
+          },
+          {
+            "type": "destructure",
+            "named": true
+          },
+          {
+            "type": "ident",
+            "named": true
+          },
+          {
+            "type": "variant",
+            "named": true
+          },
+          {
+            "type": "wildcard",
+            "named": true
+          }
+        ]
+      }
+    }
+  },
+  {
+    "type": "matchExpr",
+    "named": true,
+    "fields": {
+      "arms": {
+        "multiple": true,
+        "required": true,
+        "types": [
+          {
+            "type": ",",
+            "named": false
+          },
+          {
+            "type": "matchArm",
+            "named": true
+          },
+          {
+            "type": "{",
+            "named": false
+          },
+          {
+            "type": "}",
+            "named": false
+          }
+        ]
+      },
+      "disc": {
         "multiple": false,
         "required": true,
         "types": [
@@ -821,6 +1207,14 @@
             "named": true
           },
           {
+            "type": "instantiate",
+            "named": true
+          },
+          {
+            "type": "matchExpr",
+            "named": true
+          },
+          {
             "type": "number",
             "named": true
           },
@@ -837,65 +1231,7 @@
             "named": true
           }
         ]
-      },
-      "false": {
-        "multiple": false,
-        "required": false,
-        "types": [
-          {
-            "type": "block",
-            "named": true
-          }
-        ]
-      },
-      "true": {
-        "multiple": false,
-        "required": true,
-        "types": [
-          {
-            "type": "block",
-            "named": true
-          }
-        ]
       }
-    }
-  },
-  {
-    "type": "innerOrAlias",
-    "named": true,
-    "fields": {
-      "alias": {
-        "multiple": true,
-        "required": false,
-        "types": [
-          {
-            "type": "=",
-            "named": false
-          },
-          {
-            "type": "funcType",
-            "named": true
-          },
-          {
-            "type": "normalType",
-            "named": true
-          },
-          {
-            "type": "refType",
-            "named": true
-          }
-        ]
-      }
-    },
-    "children": {
-      "multiple": false,
-      "required": false,
-      "types": [
-        {
-          "type": "typeInner",
-          "named": true
-        }
-      ]
     }
   },
   {
@@ -973,6 +1309,14 @@
           "named": true
         },
         {
+          "type": "instantiate",
+          "named": true
+        },
+        {
+          "type": "matchExpr",
+          "named": true
+        },
+        {
           "type": "number",
           "named": true
         },
@@ -1038,6 +1382,29 @@
     }
   },
   {
+    "type": "typeAlias",
+    "named": true,
+    "fields": {},
+    "children": {
+      "multiple": false,
+      "required": true,
+      "types": [
+        {
+          "type": "funcType",
+          "named": true
+        },
+        {
+          "type": "normalType",
+          "named": true
+        },
+        {
+          "type": "refType",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
     "type": "typeAnnotated",
     "named": true,
     "fields": {
@@ -1091,7 +1458,11 @@
       "required": false,
       "types": [
         {
-          "type": "innerOrAlias",
+          "type": "typeAlias",
+          "named": true
+        },
+        {
+          "type": "typeInner",
           "named": true
         }
       ]
@@ -1176,7 +1547,11 @@
       "required": false,
       "types": [
         {
-          "type": "innerOrAlias",
+          "type": "typeAlias",
+          "named": true
+        },
+        {
+          "type": "typeInner",
           "named": true
         }
       ]
@@ -1258,6 +1633,14 @@
           "named": true
         },
         {
+          "type": "instantiate",
+          "named": true
+        },
+        {
+          "type": "matchExpr",
+          "named": true
+        },
+        {
           "type": "number",
           "named": true
         },
@@ -1271,6 +1654,21 @@
         },
         {
           "type": "unary",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
+    "type": "variant",
+    "named": true,
+    "fields": {},
+    "children": {
+      "multiple": false,
+      "required": true,
+      "types": [
+        {
+          "type": "typeName",
           "named": true
         }
       ]
@@ -1457,6 +1855,10 @@
     "named": false
   },
   {
+    "type": "match",
+    "named": false
+  },
+  {
     "type": "number",
     "named": true
   },
@@ -1465,12 +1867,20 @@
     "named": false
   },
   {
+    "type": "rest",
+    "named": true
+  },
+  {
     "type": "string",
     "named": true
   },
   {
     "type": "type",
     "named": false
+  },
+  {
+    "type": "wildcard",
+    "named": true
   },
   {
     "type": "yield",
