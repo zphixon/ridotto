@@ -62,7 +62,14 @@ type Atype {
     Tomlinson = Joo
     ## a tingus, a tangus
     Boblinson
-    func bob() {}
+    func bob(bobarg: int) {
+        let a = if bobarg == 0 {
+            return
+        }
+         else {
+            bob(bobarg - 1)
+        }
+    }
 }
 
 #    func asdf(x: int, b: y) -> Asdf.Bsdf[Csdf, Dsdf,] {
@@ -98,7 +105,9 @@ type Atype {
     fn walk(sarce: &str, cursor: &mut tree_sitter::TreeCursor, indent: usize) {
         let indent_ = "|  ".repeat(indent);
 
-        if cursor.node().is_named() && cursor.node().kind() != node_kind!("comment") {
+        if (cursor.node().is_named() || cursor.field_name() == Some(field_name!("op")))
+            && cursor.node().kind() != node_kind!("comment")
+        {
             println!(
                 "{indent_}{}{}{}",
                 cursor.node().kind(),

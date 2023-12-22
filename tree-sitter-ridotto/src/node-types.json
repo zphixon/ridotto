@@ -485,6 +485,42 @@
     }
   },
   {
+    "type": "ifStmt",
+    "named": true,
+    "fields": {
+      "cond": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "expr",
+            "named": true
+          }
+        ]
+      },
+      "false": {
+        "multiple": false,
+        "required": false,
+        "types": [
+          {
+            "type": "block",
+            "named": true
+          }
+        ]
+      },
+      "true": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "block",
+            "named": true
+          }
+        ]
+      }
+    }
+  },
+  {
     "type": "innerOrAlias",
     "named": true,
     "fields": {
@@ -615,6 +651,10 @@
         },
         {
           "type": "expr",
+          "named": true
+        },
+        {
+          "type": "ifStmt",
           "named": true
         }
       ]

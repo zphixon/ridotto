@@ -17,6 +17,8 @@ module.exports = grammar({
     $.docComment,
   ],
 
+  conflicts: $ => [[$.ifExpr, $.ifStmt]],
+
   rules: {
     source_file: $ => repeat(choice($.typeDecl, $.func, $.klass)),
 
@@ -28,11 +30,12 @@ module.exports = grammar({
       $.funcType,
       $.refType,
     ),
-    typeName: $ => _listNoTrail('.', $.ident),
+
     normalType: $ => seq(
       field('name', $.typeName),
       field('instantiate', optional(_wrap(BRACKETS, $.typeExpr))),
     ),
+
     funcType: $ => _wrap(
       PARENS,
       seq(
@@ -41,8 +44,11 @@ module.exports = grammar({
         field('return', optional($.typeExpr)),
       )
     ),
-    typeArgs: $ => _list(',', $.typeExpr),
+
     refType: $ => seq('&', $.typeExpr),
+
+    typeName: $ => _listNoTrail('.', $.ident),
+    typeArgs: $ => _list(',', $.typeExpr),
 
     typeDecl: $ => seq(
       'type',
@@ -89,6 +95,7 @@ module.exports = grammar({
     stmt: $ => seq(
       choice(
         $.binding,
+        $.ifStmt,
         $.expr,
       ),
       repeat(','),
@@ -182,6 +189,13 @@ module.exports = grammar({
       field('true', $.block),
       'else',
       field('false', $.block),
+    ),
+
+    ifStmt: $ => seq(
+      'if',
+      field('cond', $.expr),
+      field('true', $.block),
+      optional(seq('else', field('false', $.block))),
     ),
 
     klass: $ => 'class',
