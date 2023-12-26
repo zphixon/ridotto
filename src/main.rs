@@ -1,6 +1,5 @@
-use ridotto_macros::{field_name, node_kind};
-
 mod typeck;
+mod parse;
 
 fn main() {
     tracing_subscriber::fmt::init();
@@ -101,53 +100,4 @@ func main(args: List[&String]) {
 
     let x = 0.3e0;
 
-    let mut parser = tree_sitter::Parser::new();
-    parser
-        .set_language(tree_sitter_ridotto::language())
-        .unwrap();
-    let tree = parser.parse(&src, None).unwrap();
-    println!("{:#?}", tree);
-
-    let mut cursor = tree.walk();
-    fn walk(sarce: &str, cursor: &mut tree_sitter::TreeCursor, indent: usize) {
-        let indent_ = "|  ".repeat(indent);
-
-        if (cursor.node().is_named() || cursor.field_name() == Some(field_name!("op")))
-            && cursor.node().kind() != node_kind!("comment")
-        {
-            println!(
-                "{indent_}{}{}{}",
-                cursor.node().kind(),
-                if matches!(
-                    cursor.node().kind(),
-                    node_kind!("lowerIdent") | node_kind!("upperIdent") | node_kind!("docComment")
-                ) {
-                    format!(" {}", &sarce[cursor.node().byte_range()].trim())
-                } else {
-                    "".into()
-                },
-                cursor
-                    .field_name()
-                    .map(|name| format!(" ({})", name))
-                    .unwrap_or("".into()),
-            );
-        }
-
-        if cursor.node().kind() == node_kind!("ERROR") {
-            println!(
-                "{indent_}  OH SHITTTTT {:?}",
-                &sarce[cursor.node().byte_range()]
-            );
-        }
-
-        if cursor.goto_first_child() {
-            walk(sarce, cursor, indent + 1);
-            cursor.goto_parent();
-        }
-
-        while cursor.goto_next_sibling() {
-            walk(sarce, cursor, indent);
-        }
-    }
-    walk(&src, &mut cursor, 0);
 }

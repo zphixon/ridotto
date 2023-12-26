@@ -1,0 +1,102 @@
+# idk. i'm making this up. a non-annoying meta-grammar for programming languages.
+# whitespace may exist between terminal rules notated with single quotes or regexes.
+# whitespace must exist between terminal rules notated with double quotes. some
+# builtin rules that look like function calls. repeats like regexes. alternation
+# with |. sequences with juxtaposition. parens if necessary. just make it readable
+
+# may appear anywhere anywhere between terminals
+_anywhere: /#.*\n/
+
+# root rule
+_grammar: typeDecl | func | class | impl
+
+upperIdent: /[A-Z_][a-zA-Z0-9_]+/
+lowerIdent: /[a-z_][a-zA-Z0-9_]+/
+
+typeExpr: normalType | funcType | refType | tupleType | lowerIdent
+normalType: typeName WrapSquare?(typeExpr)
+funcType: WrapParen(typeExpr? '->' typeExpr?)
+refType: '&' typeExpr
+tupleType: WrapParen(List(typeExpr))
+typeName: ListNoTrail('.', upperIdent)
+
+docComment: /##.*\n/
+
+typeDecl: docComment? "type" normalType whereClause? (typeInner | typeAlias)?
+typeInner:
+    WrapCurly(
+        ListMaybeSep(docComment? typeAnnotated)
+        ListMaybeSep(docComment? typeVariant)
+        ListMaybeSep(func)
+    )
+typeAlias: '=' typeExpr
+typeAnnotated: lowerIdent ':' typeExpr
+typeVariant: upperIdent (typeInner | typeAlias)?
+whereClause: "where" ListNoTrail(typeExpr "is" typeExpr)
+
+func: funcHead block
+funcHead:
+    docComment?
+    ChoiceRepeat("async", "const", "export", "builtin", "static") "func" lowerIdent
+    WrapSquare?(List(typeExpr))
+    WrapParen(List?(typeAnnotated))
+    ('->' typeExpr)?
+    whereClause?
+block: WrapCurly(stmt*)
+
+stmt: (binding | expr) ','*
+expr:
+    number | string | bool | lowerIdent
+    | dotAccess | lookup
+    | unary
+    | binary
+    | paren
+    | tupleExpr
+    | instantiate
+    | if
+    | match
+paren: WrapParen(expr)
+tupleExpr: WrapParen(List(expr))
+dotAccess: lowerIdent List+('.', (lowerIdent | /[0-9]+/))
+lookup: typeExpr '.' lowerIdent
+unary: Prec(60, ( '-' | '+' | '!' | '&' | '~' | '@' | '^' | "await" | "yield") expr)
+binary: # lower precedence number binds tighter
+    Prec(80, call | arrayIndex)
+    | PrecLeft(40, expr ('*' | '/' | '%') expr)
+    | PrecLeft(39, expr ('+' | '-') expr)
+    | PrecLeft(38, expr ('^' | '&' | '|' | '<<' | '>>') expr)
+    | PrecLeft(37, expr ('>' | '<' | '>=' | '<=' | '==' | '!=' | '<>' | "in") expr)
+    | PrecLeft(36, expr ("and" | '&&') expr)
+    | PrecLeft(35, expr ("or" | '||') expr)
+call: expr WrapParen(List?(Expr))
+arrayIndex: expr WrapSquare(Expr)
+instantiate: typeExpr WrapCurly?(List(lowerIdent (':' expr)?))
+if: "if" expr block ("else" block)?
+
+number: /[0-9]+(\.[0-9]+)?([eE][0-9]+)?/
+string: /'(\\.|[^'])*'/
+bool: "true" | "false"
+
+match: "match" expr WrapCurly(ListMaybeSep(matchArm))
+matchArm: pattern ("if" expr)? block
+
+binding: "let" pattern '=' expr
+
+pattern:
+    '_' | lowerIdent
+    | variant
+    | alternate
+    | destructure
+    | tuplePattern
+variant: typeName
+alternate: ListNoTrail('|', pattern)
+destructure: typeName WrapCurly(ListNoTrail(lowerIdent) (',' | (',' '..'))?)
+tuplePattern: WrapParen(List(pattern))
+
+class:
+    docComment? "class" normalType whereClause?
+    WrapCurly((funcHead | func)*)
+
+impl:
+    docComment? "impl" normalType "for" normalType whereClause?
+    WrapCurly(func*)

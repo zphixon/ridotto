@@ -1,45 +1,6 @@
 use proc_macro::TokenStream;
 use quote::ToTokens;
-use syn::{FnArg, ItemFn, LitStr, Pat, PatIdent, ReturnType, Type, TypePath, TypeReference};
-
-#[proc_macro]
-pub fn node_kind(input: TokenStream) -> TokenStream {
-    let input_str: LitStr = syn::parse(input).expect("Not a string");
-    let value = input_str.value();
-
-    let language = tree_sitter_ridotto::language();
-
-    if language.id_for_node_kind(&value, true) == 0 && language.id_for_node_kind(&value, false) == 0
-    {
-        let error_message = format!("Unknown node kind {:?}", value);
-        quote::quote_spanned! {
-            input_str.span() => compile_error!(#error_message)
-        }
-        .into_token_stream()
-        .into()
-    } else {
-        input_str.into_token_stream().into()
-    }
-}
-
-#[proc_macro]
-pub fn field_name(input: TokenStream) -> TokenStream {
-    let input_str: LitStr = syn::parse(input).expect("Not a string");
-    let value = input_str.value();
-
-    let language = tree_sitter_ridotto::language();
-
-    if language.field_id_for_name(&value).is_none() {
-        let error_message = format!("Unknown field name {:?}", value);
-        quote::quote_spanned! {
-            input_str.span() => compile_error!(#error_message)
-        }
-        .into_token_stream()
-        .into()
-    } else {
-        input_str.into_token_stream().into()
-    }
-}
+use syn::{FnArg, ItemFn, Pat, PatIdent, ReturnType, Type, TypePath, TypeReference};
 
 #[proc_macro_attribute]
 pub fn parser_traced(_: TokenStream, item: TokenStream) -> TokenStream {
