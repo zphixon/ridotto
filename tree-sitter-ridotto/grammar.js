@@ -3,14 +3,14 @@ const SQUARES = ['[', ']'];
 const CURLIES = ['{', '}'];
 
 const _list = (sep, rule) => seq(rule, repeat(seq(sep, rule)), optional(sep));
-const _listMaybeSep = (sep, rule) => seq(rule, repeat(seq(optional(sep), rule)), optional(sep));
+const _listMaybeSep = (sep, rule) => seq(rule, optional(sep), repeat(seq(rule, optional(sep))));
 const _listNoTrail = (sep, rule) => seq(rule, repeat(seq(sep, rule)));
 const _wrap = (w, rule) => seq(w[0], rule, w[1]);
 
 module.exports = grammar({
   name: 'ridotto',
 
-  word: $ => $.ident,
+  word: $ => $.anyIdent,
   extras: $ => [
     /\s+/,
     $.comment,
@@ -23,6 +23,7 @@ module.exports = grammar({
     [$.destructure, $.variant],
     [$.typeName, $.dotAccess],
     [$.paren, $.tuple],
+    [$.lowerIdent, $.upperIdent],
   ],
 
   rules: {
@@ -57,8 +58,7 @@ module.exports = grammar({
 
     tupleType: $ => _wrap(PARENS, _list(',', $._typeExpr)),
 
-    typeName: $ => _listNoTrail('.', $.ident),
-    typeArgs: $ => _list(',', $._typeExpr),
+    typeName: $ => _listNoTrail('.', $.upperIdent),
 
     typeDecl: $ => seq(
       'type',
@@ -82,12 +82,12 @@ module.exports = grammar({
     typeAlias: $ => seq('=', $._typeExpr),
 
     typeVariant: $ => seq(
-      field('name', $.ident),
+      field('name', $.upperIdent),
       optional($._innerOrAlias),
     ),
 
     typeAnnotated: $ => seq(
-      field('name', $.ident),
+      field('name', $.lowerIdent),
       ':',
       field('type', $._typeExpr),
     ),
@@ -96,7 +96,7 @@ module.exports = grammar({
     _funcHead: $ => seq(
       field('mods', repeat(choice('async', 'const', 'export', 'builtin'))),
       'func',
-      field('name', $.ident),
+      field('name', $.lowerIdent),
       field('args', _wrap(PARENS, optional(_list(',', $.typeAnnotated)))),
       field('return', optional(seq('->', $._typeExpr))),
     ),
@@ -123,7 +123,7 @@ module.exports = grammar({
 
     expr: $ => $._expr,
     _expr: $ => choice(
-      $.ident,
+      $.lowerIdent,
       $.dotAccess,
       $.number,
       $.string,
@@ -140,7 +140,7 @@ module.exports = grammar({
     paren: $ => _wrap(PARENS, $._expr),
     tuple: $ => _wrap(PARENS, _list(',', $._expr)),
 
-    dotAccess: $ => seq($.ident, repeat1(seq('.', $.ident))),
+    dotAccess: $ => seq($.lowerIdent, repeat1(seq('.', choice($.lowerIdent, /[0-9]+/)))),
 
     // keep string tokens for operators
     unary: $ => prec(30, choice(
@@ -223,7 +223,7 @@ module.exports = grammar({
       field('type', $.typeName),
       _wrap(CURLIES,
         _list(',', seq(
-          field('name', $.ident),
+          field('name', $.lowerIdent),
           optional(seq(':', field('value', $._expr))),
         ))
       ),
@@ -232,7 +232,7 @@ module.exports = grammar({
     pattern: $ => $._pattern,
     _pattern: $ => choice(
       $.wildcard,
-      $.ident,
+      $.lowerIdent,
       $.alternate,
       $.destructure,
       $.variant,
@@ -250,7 +250,7 @@ module.exports = grammar({
     destructure: $ => seq(
       field('type', $.typeName),
       field('fields', _wrap(CURLIES, seq(
-        _list(',', $.ident),
+        _list(',', $.lowerIdent),
         optional($.rest),
       ))),
     ),
@@ -263,7 +263,10 @@ module.exports = grammar({
 
     klass: $ => 'class',
 
-    ident: $ => /[a-zA-Z_]+[a-zA-Z0-9_]*/,
+    anyIdent: $ => /[a-zA-Z]+[a-zA-Z0-9_]*/,
+    lowerIdent: $ => /[a-z]+[a-zA-Z0-9_]*/,
+    upperIdent: $ => /[A-Z_]+[a-zA-Z0-9_]*/,
+
     number: $ => /(\+|-)?[0-9]+(\.[0-9]+)?([eE][0-9]+)?/,
     string: $ => /'(\\.|[^'])*'/s,
     bool: $ => /true|false/,

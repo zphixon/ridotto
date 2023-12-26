@@ -16,7 +16,7 @@
             "named": true
           },
           {
-            "type": "ident",
+            "type": "lowerIdent",
             "named": true
           },
           {
@@ -46,7 +46,7 @@
             "named": true
           },
           {
-            "type": "ident",
+            "type": "lowerIdent",
             "named": true
           },
           {
@@ -86,15 +86,15 @@
             "named": true
           },
           {
-            "type": "ident",
-            "named": true
-          },
-          {
             "type": "ifExpr",
             "named": true
           },
           {
             "type": "instantiate",
+            "named": true
+          },
+          {
+            "type": "lowerIdent",
             "named": true
           },
           {
@@ -148,15 +148,15 @@
             "named": true
           },
           {
-            "type": "ident",
-            "named": true
-          },
-          {
             "type": "ifExpr",
             "named": true
           },
           {
             "type": "instantiate",
+            "named": true
+          },
+          {
+            "type": "lowerIdent",
             "named": true
           },
           {
@@ -208,15 +208,15 @@
             "named": true
           },
           {
-            "type": "ident",
-            "named": true
-          },
-          {
             "type": "ifExpr",
             "named": true
           },
           {
             "type": "instantiate",
+            "named": true
+          },
+          {
+            "type": "lowerIdent",
             "named": true
           },
           {
@@ -356,15 +356,15 @@
             "named": true
           },
           {
-            "type": "ident",
-            "named": true
-          },
-          {
             "type": "ifExpr",
             "named": true
           },
           {
             "type": "instantiate",
+            "named": true
+          },
+          {
+            "type": "lowerIdent",
             "named": true
           },
           {
@@ -426,7 +426,7 @@
             "named": true
           },
           {
-            "type": "ident",
+            "type": "lowerIdent",
             "named": true
           },
           {
@@ -460,15 +460,15 @@
             "named": true
           },
           {
-            "type": "ident",
-            "named": true
-          },
-          {
             "type": "ifExpr",
             "named": true
           },
           {
             "type": "instantiate",
+            "named": true
+          },
+          {
+            "type": "lowerIdent",
             "named": true
           },
           {
@@ -551,15 +551,15 @@
             "named": true
           },
           {
-            "type": "ident",
-            "named": true
-          },
-          {
             "type": "ifExpr",
             "named": true
           },
           {
             "type": "instantiate",
+            "named": true
+          },
+          {
+            "type": "lowerIdent",
             "named": true
           },
           {
@@ -605,15 +605,15 @@
             "named": true
           },
           {
-            "type": "ident",
-            "named": true
-          },
-          {
             "type": "ifExpr",
             "named": true
           },
           {
             "type": "instantiate",
+            "named": true
+          },
+          {
+            "type": "lowerIdent",
             "named": true
           },
           {
@@ -662,7 +662,7 @@
             "named": false
           },
           {
-            "type": "ident",
+            "type": "lowerIdent",
             "named": true
           },
           {
@@ -705,7 +705,7 @@
       "required": true,
       "types": [
         {
-          "type": "ident",
+          "type": "lowerIdent",
           "named": true
         }
       ]
@@ -732,15 +732,15 @@
           "named": true
         },
         {
-          "type": "ident",
-          "named": true
-        },
-        {
           "type": "ifExpr",
           "named": true
         },
         {
           "type": "instantiate",
+          "named": true
+        },
+        {
+          "type": "lowerIdent",
           "named": true
         },
         {
@@ -833,7 +833,7 @@
         "required": true,
         "types": [
           {
-            "type": "ident",
+            "type": "lowerIdent",
             "named": true
           }
         ]
@@ -937,15 +937,15 @@
             "named": true
           },
           {
-            "type": "ident",
-            "named": true
-          },
-          {
             "type": "ifExpr",
             "named": true
           },
           {
             "type": "instantiate",
+            "named": true
+          },
+          {
+            "type": "lowerIdent",
             "named": true
           },
           {
@@ -1005,7 +1005,7 @@
         "required": true,
         "types": [
           {
-            "type": "ident",
+            "type": "lowerIdent",
             "named": true
           }
         ]
@@ -1037,15 +1037,15 @@
             "named": true
           },
           {
-            "type": "ident",
-            "named": true
-          },
-          {
             "type": "ifExpr",
             "named": true
           },
           {
             "type": "instantiate",
+            "named": true
+          },
+          {
+            "type": "lowerIdent",
             "named": true
           },
           {
@@ -1107,10 +1107,6 @@
             "named": true
           },
           {
-            "type": "ident",
-            "named": true
-          },
-          {
             "type": "if",
             "named": false
           },
@@ -1120,6 +1116,10 @@
           },
           {
             "type": "instantiate",
+            "named": true
+          },
+          {
+            "type": "lowerIdent",
             "named": true
           },
           {
@@ -1161,7 +1161,7 @@
             "named": true
           },
           {
-            "type": "ident",
+            "type": "lowerIdent",
             "named": true
           },
           {
@@ -1223,15 +1223,15 @@
             "named": true
           },
           {
-            "type": "ident",
-            "named": true
-          },
-          {
             "type": "ifExpr",
             "named": true
           },
           {
             "type": "instantiate",
+            "named": true
+          },
+          {
+            "type": "lowerIdent",
             "named": true
           },
           {
@@ -1329,15 +1329,15 @@
           "named": true
         },
         {
-          "type": "ident",
-          "named": true
-        },
-        {
           "type": "ifExpr",
           "named": true
         },
         {
           "type": "instantiate",
+          "named": true
+        },
+        {
+          "type": "lowerIdent",
           "named": true
         },
         {
@@ -1438,15 +1438,15 @@
           "named": true
         },
         {
-          "type": "ident",
-          "named": true
-        },
-        {
           "type": "ifExpr",
           "named": true
         },
         {
           "type": "instantiate",
+          "named": true
+        },
+        {
+          "type": "lowerIdent",
           "named": true
         },
         {
@@ -1493,7 +1493,7 @@
           "named": true
         },
         {
-          "type": "ident",
+          "type": "lowerIdent",
           "named": true
         },
         {
@@ -1574,7 +1574,7 @@
         "required": true,
         "types": [
           {
-            "type": "ident",
+            "type": "lowerIdent",
             "named": true
           }
         ]
@@ -1686,7 +1686,7 @@
       "required": true,
       "types": [
         {
-          "type": "ident",
+          "type": "upperIdent",
           "named": true
         }
       ]
@@ -1701,7 +1701,7 @@
         "required": true,
         "types": [
           {
-            "type": "ident",
+            "type": "upperIdent",
             "named": true
           }
         ]
@@ -1786,15 +1786,15 @@
           "named": true
         },
         {
-          "type": "ident",
-          "named": true
-        },
-        {
           "type": "ifExpr",
           "named": true
         },
         {
           "type": "instantiate",
+          "named": true
+        },
+        {
+          "type": "lowerIdent",
           "named": true
         },
         {
@@ -2000,10 +2000,6 @@
     "named": false
   },
   {
-    "type": "ident",
-    "named": true
-  },
-  {
     "type": "if",
     "named": false
   },
@@ -2018,6 +2014,10 @@
   {
     "type": "let",
     "named": false
+  },
+  {
+    "type": "lowerIdent",
+    "named": true
   },
   {
     "type": "match",
@@ -2042,6 +2042,10 @@
   {
     "type": "type",
     "named": false
+  },
+  {
+    "type": "upperIdent",
+    "named": true
   },
   {
     "type": "wildcard",

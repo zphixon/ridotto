@@ -37,8 +37,8 @@ func main(args: List[&String]) {
 }
 "#;
 
-    let src = std::fs::read_to_string(std::env::args().nth(1).unwrap_or("sample.ridotto".into()))
-        .unwrap();
+    //let src = std::fs::read_to_string(std::env::args().nth(1).unwrap_or("sample.ridotto".into()))
+    //    .unwrap();
 
     //let src = "type Asdf";
 
@@ -120,7 +120,7 @@ func main(args: List[&String]) {
                 cursor.node().kind(),
                 if matches!(
                     cursor.node().kind(),
-                    node_kind!("ident") | node_kind!("docComment")
+                    node_kind!("lowerIdent") | node_kind!("upperIdent") | node_kind!("docComment")
                 ) {
                     format!(" {}", &sarce[cursor.node().byte_range()].trim())
                 } else {
