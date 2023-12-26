@@ -74,6 +74,10 @@
         {
           "type": "SYMBOL",
           "name": "refType"
+        },
+        {
+          "type": "SYMBOL",
+          "name": "tupleType"
         }
       ]
     },
@@ -186,6 +190,56 @@
         }
       ]
     },
+    "tupleType": {
+      "type": "SEQ",
+      "members": [
+        {
+          "type": "STRING",
+          "value": "("
+        },
+        {
+          "type": "SEQ",
+          "members": [
+            {
+              "type": "SYMBOL",
+              "name": "_typeExpr"
+            },
+            {
+              "type": "REPEAT",
+              "content": {
+                "type": "SEQ",
+                "members": [
+                  {
+                    "type": "STRING",
+                    "value": ","
+                  },
+                  {
+                    "type": "SYMBOL",
+                    "name": "_typeExpr"
+                  }
+                ]
+              }
+            },
+            {
+              "type": "CHOICE",
+              "members": [
+                {
+                  "type": "STRING",
+                  "value": ","
+                },
+                {
+                  "type": "BLANK"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "STRING",
+          "value": ")"
+        }
+      ]
+    },
     "typeName": {
       "type": "SEQ",
       "members": [
@@ -260,7 +314,7 @@
           "name": "name",
           "content": {
             "type": "SYMBOL",
-            "name": "ident"
+            "name": "normalType"
           }
         },
         {
@@ -768,6 +822,10 @@
         },
         {
           "type": "SYMBOL",
+          "name": "tuple"
+        },
+        {
+          "type": "SYMBOL",
           "name": "ifExpr"
         },
         {
@@ -790,6 +848,56 @@
         {
           "type": "SYMBOL",
           "name": "_expr"
+        },
+        {
+          "type": "STRING",
+          "value": ")"
+        }
+      ]
+    },
+    "tuple": {
+      "type": "SEQ",
+      "members": [
+        {
+          "type": "STRING",
+          "value": "("
+        },
+        {
+          "type": "SEQ",
+          "members": [
+            {
+              "type": "SYMBOL",
+              "name": "_expr"
+            },
+            {
+              "type": "REPEAT",
+              "content": {
+                "type": "SEQ",
+                "members": [
+                  {
+                    "type": "STRING",
+                    "value": ","
+                  },
+                  {
+                    "type": "SYMBOL",
+                    "name": "_expr"
+                  }
+                ]
+              }
+            },
+            {
+              "type": "CHOICE",
+              "members": [
+                {
+                  "type": "STRING",
+                  "value": ","
+                },
+                {
+                  "type": "BLANK"
+                }
+              ]
+            }
+          ]
         },
         {
           "type": "STRING",
@@ -1738,6 +1846,10 @@
         {
           "type": "SYMBOL",
           "name": "variant"
+        },
+        {
+          "type": "SYMBOL",
+          "name": "tuplePattern"
         }
       ]
     },
@@ -1866,6 +1978,56 @@
       "type": "SYMBOL",
       "name": "typeName"
     },
+    "tuplePattern": {
+      "type": "SEQ",
+      "members": [
+        {
+          "type": "STRING",
+          "value": "("
+        },
+        {
+          "type": "SEQ",
+          "members": [
+            {
+              "type": "SYMBOL",
+              "name": "_pattern"
+            },
+            {
+              "type": "REPEAT",
+              "content": {
+                "type": "SEQ",
+                "members": [
+                  {
+                    "type": "STRING",
+                    "value": ","
+                  },
+                  {
+                    "type": "SYMBOL",
+                    "name": "_pattern"
+                  }
+                ]
+              }
+            },
+            {
+              "type": "CHOICE",
+              "members": [
+                {
+                  "type": "STRING",
+                  "value": ","
+                },
+                {
+                  "type": "BLANK"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "STRING",
+          "value": ")"
+        }
+      ]
+    },
     "klass": {
       "type": "STRING",
       "value": "class"
@@ -1917,6 +2079,10 @@
     [
       "typeName",
       "dotAccess"
+    ],
+    [
+      "paren",
+      "tuple"
     ]
   ],
   "precedences": [],

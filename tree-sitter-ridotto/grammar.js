@@ -22,6 +22,7 @@ module.exports = grammar({
     [$._expr, $.typeName],
     [$.destructure, $.variant],
     [$.typeName, $.dotAccess],
+    [$.paren, $.tuple],
   ],
 
   rules: {
@@ -35,6 +36,7 @@ module.exports = grammar({
       $.normalType,
       $.funcType,
       $.refType,
+      $.tupleType,
     ),
 
     normalType: $ => seq(
@@ -53,12 +55,14 @@ module.exports = grammar({
 
     refType: $ => seq('&', $._typeExpr),
 
+    tupleType: $ => _wrap(PARENS, _list(',', $._typeExpr)),
+
     typeName: $ => _listNoTrail('.', $.ident),
     typeArgs: $ => _list(',', $._typeExpr),
 
     typeDecl: $ => seq(
       'type',
-      field('name', $.ident),
+      field('name', $.normalType),
       optional($._innerOrAlias),
     ),
 
@@ -127,12 +131,14 @@ module.exports = grammar({
       $.unary,
       $.binary,
       $.paren,
+      $.tuple,
       $.ifExpr,
       $.matchExpr,
       $.instantiate,
     ),
 
     paren: $ => _wrap(PARENS, $._expr),
+    tuple: $ => _wrap(PARENS, _list(',', $._expr)),
 
     dotAccess: $ => seq($.ident, repeat1(seq('.', $.ident))),
 
@@ -230,6 +236,7 @@ module.exports = grammar({
       $.alternate,
       $.destructure,
       $.variant,
+      $.tuplePattern,
     ),
 
     wildcard: $ => '_',
@@ -251,6 +258,8 @@ module.exports = grammar({
     rest: $ => '..',
 
     variant: $ => $.typeName,
+
+    tuplePattern: $ => _wrap(PARENS, _list(',', $._pattern)),
 
     klass: $ => 'class',
 

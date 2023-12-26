@@ -37,8 +37,8 @@ func main(args: List[&String]) {
 }
 "#;
 
-    //let src = std::fs::read_to_string(std::env::args().nth(1).unwrap_or("sample.ridotto".into()))
-    //    .unwrap();
+    let src = std::fs::read_to_string(std::env::args().nth(1).unwrap_or("sample.ridotto".into()))
+        .unwrap();
 
     //let src = "type Asdf";
 
@@ -105,7 +105,7 @@ func main(args: List[&String]) {
     parser
         .set_language(tree_sitter_ridotto::language())
         .unwrap();
-    let tree = parser.parse(src, None).unwrap();
+    let tree = parser.parse(&src, None).unwrap();
     println!("{:#?}", tree);
 
     let mut cursor = tree.walk();
@@ -149,5 +149,5 @@ func main(args: List[&String]) {
             walk(sarce, cursor, indent);
         }
     }
-    walk(src, &mut cursor, 0);
+    walk(&src, &mut cursor, 0);
 }
