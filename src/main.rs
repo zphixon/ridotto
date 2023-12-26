@@ -14,17 +14,17 @@ type Atype {
 }
 
 func main(args: List[&String]) {
-    let d = X { y, ..args },
+    #let d = X { y, ..args },
     let a = Atype.Bjeif.Froosh {
         y,
         b: @47
     }
-    let mut b = &Atype.Bjeif.Froosh {
-        y: 32
+    let b = &Atype.Bjeif.Froosh {
+        y: 32,
         b: 47
     }
     match b {
-        Atype.Bjief.Froosh { y, b: a, .. } if a == 47 {
+        Atype.Bjief.Froosh { y, a, .. } if a == 47 {
             bff
         }
         _ | Maybe { y, .. }  | Bool.False | Bool.True if y == 3 {

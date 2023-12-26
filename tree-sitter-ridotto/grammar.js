@@ -127,7 +127,6 @@ module.exports = grammar({
       $.unary,
       $.binary,
       $.paren,
-      $.block,
       $.ifExpr,
       $.matchExpr,
       $.instantiate,
