@@ -1,5 +1,7 @@
-mod typeck;
+use logos::Logos;
+
 mod parse;
+mod typeck;
 
 fn main() {
     tracing_subscriber::fmt::init();
@@ -22,6 +24,7 @@ func main(args: List[&String]) {
         y: 32,
         b: 47
     }
+    $
     match b {
         Atype.Bjief.Froosh { y, a, .. } if a == 47 {
             bff
@@ -100,4 +103,17 @@ func main(args: List[&String]) {
 
     let x = 0.3e0;
 
+    //let ts = parse::lex(src);
+    //for token in ts {
+    //    //println!("{:?}", token);
+    //}
+
+    let mut bruh = parse::Token::lexer(src);
+    loop {
+        let token = bruh.next();
+        println!("{:?} {:?} {:?}", bruh.span(), bruh.slice(), token);
+        if token == parse::Token::Eof {
+            break;
+        }
+    }
 }

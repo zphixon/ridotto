@@ -1,6 +1,55 @@
 use proc_macro::TokenStream;
+use proc_macro2::{Ident, Span};
 use quote::ToTokens;
 use syn::{FnArg, ItemFn, Pat, PatIdent, ReturnType, Type, TypePath, TypeReference};
+
+#[proc_macro]
+pub fn tree_kind(_: TokenStream) -> TokenStream {
+    let grammar = std::fs::read_to_string(
+        std::path::PathBuf::from(
+            std::env::var("CARGO_MANIFEST_DIR").expect("no CARGO_MANIFEST_DIR env var"),
+        )
+        .join("grammar.metagrammar"),
+    )
+    .expect("could not read grammar.metagrammar");
+
+    let mut variants = Vec::new();
+
+    for line in grammar.lines() {
+        if line.trim().starts_with("#")
+            || line.trim().is_empty()
+            || line.as_bytes()[0].is_ascii_whitespace()
+        {
+            continue;
+        }
+        let Some(name) = line.split(":").take(1).next() else {
+            continue;
+        };
+
+        let name = name.trim_start_matches("_");
+        let mut name = String::from(name);
+        if !name.is_ascii() || name.is_empty() {
+            continue;
+        }
+        // SAFETY: name is ascii and not empty
+        unsafe {
+            let upper_name = name.as_bytes_mut();
+            upper_name[0] = upper_name[0].to_ascii_uppercase();
+        }
+
+        let name = Ident::new(&name, Span::call_site());
+        variants.push(quote::quote! { #name, });
+    }
+
+    quote::quote! {
+        #[derive(Clone, Copy, PartialEq, Eq, Debug)]
+        pub enum TreeKind {
+            #(#variants)*
+        }
+    }
+    .to_token_stream()
+    .into()
+}
 
 #[proc_macro_attribute]
 pub fn parser_traced(_: TokenStream, item: TokenStream) -> TokenStream {

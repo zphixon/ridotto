@@ -16,3 +16,5 @@ tracing-subscriber = '0.3.16'
 unicode-segmentation = '1.10.1'
 ridotto-macros = { path = 'ridotto-macros' }
 tree-sitter = '*'
+regex = '*'
+logos = '*'
