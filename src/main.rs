@@ -1,3 +1,4 @@
+mod ast;
 mod parse;
 mod typeck;
 
@@ -129,5 +130,5 @@ type Atype {
     //    }
     //}
 
-    println!("{:#?}", parse::parse(sarce));
+    println!("{:#?}", parse::parse("(nice, (nice, nice, nice, (nice, nice), nice), nice, (nice))"));
 }

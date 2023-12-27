@@ -1,7 +1,8 @@
-use proc_macro::TokenStream;
+use proc_macro::{Ident, TokenStream};
 use quote::ToTokens;
 use syn::{
-    parse_macro_input, FnArg, ItemFn, Pat, PatIdent, PatType, Path, Signature, Type, TypePath,
+    bracketed, parse::Parse, parse_macro_input, punctuated::Punctuated, Error, FnArg,
+    Ident as SynIdent, ItemFn, Pat, PatIdent, PatType, Path, Signature, Token, Type, TypePath,
     TypeReference,
 };
 
@@ -15,7 +16,7 @@ pub fn setup_trace(_: TokenStream) -> TokenStream {
 }
 
 #[proc_macro_attribute]
-pub fn parser_traced(_args: TokenStream, input: TokenStream) -> TokenStream {
+pub fn parser_function(_args: TokenStream, input: TokenStream) -> TokenStream {
     let ItemFn {
         vis, sig, block, ..
     } = parse_macro_input!(input);
@@ -24,58 +25,55 @@ pub fn parser_traced(_args: TokenStream, input: TokenStream) -> TokenStream {
         ident,
         inputs,
         output,
+        generics,
         ..
     } = sig;
     let name = ident.to_string();
 
-    let has_parser = inputs.iter().any(|input| match input {
-        FnArg::Typed(PatType { pat, ty, .. }) => match (pat.as_ref(), ty.as_ref()) {
-            (
-                Pat::Ident(PatIdent { ident, .. }),
-                Type::Reference(TypeReference {
-                    mutability: Some(_),
-                    elem,
-                    ..
-                }),
-            ) if ident.to_string() == "parser" => match elem.as_ref() {
-                Type::Path(TypePath {
-                    path: Path { segments, .. },
-                    ..
-                }) => {
-                    segments
-                        .iter()
-                        .map(|segment| segment.ident.to_string())
-                        .collect::<Vec<_>>()
-                        == vec![String::from("Parser")]
-                }
-                _ => false,
-            },
+    let has_lexer = inputs.iter().any(|input| match input {
+        FnArg::Typed(PatType { pat, .. }) => match pat.as_ref() {
+            Pat::Ident(PatIdent { ident, .. }) => ident.to_string() == "lexer",
             _ => false,
         },
         _ => false,
     });
 
-    let (entry, exit) = if has_parser {
+    let (entry, exit, exit_error) = if has_lexer {
+        if name == "consume" {
+
         (
-            quote::quote! { ::tracing::trace!("{}> {} {:?}", indent, #name, parser.nth(0).lexeme); },
-            quote::quote! { ::tracing::trace!("{}< {} {:?} {:?}", indent, #name, parser.nth(0).lexeme, result); },
+            quote::quote! { ::tracing::trace!(" {} -> {} {:?} {:?}", indent, #name, token, lexer.peek().copied().lexeme()); },
+            quote::quote! { ::tracing::trace!(" {} <- {} {:?} {:?}", indent, #name, token, lexer.peek().copied().lexeme()); },
+            quote::quote! { ::tracing::trace!("*{} <- {} {:?} {:?}", indent, #name, token, lexer.peek().copied().lexeme()); },
         )
+        }else {
+        (
+            quote::quote! { ::tracing::trace!(" {} -> {} {:?}", indent, #name, lexer.peek().copied().lexeme()); },
+            quote::quote! { ::tracing::trace!(" {} <- {} {:?}", indent, #name, lexer.peek().copied().lexeme()); },
+            quote::quote! { ::tracing::trace!("*{} <- {} {:?}", indent, #name, lexer.peek().copied().lexeme()); },
+        )
+    }
     } else {
         (
-            quote::quote! { ::tracing::trace!("{}> {}", indent, #name); },
-            quote::quote! { ::tracing::trace!("{}< {} {:?}", indent, #name, result); },
+            quote::quote! { ::tracing::trace!(" {} -> {}", indent, #name); },
+            quote::quote! { ::tracing::trace!(" {} <- {}", indent, #name); },
+            quote::quote! { ::tracing::trace!("*{} <- {}", indent, #name); },
         )
     };
 
     quote::quote! {
-        #vis fn #ident ( #inputs ) #output {
+        #vis fn #ident #generics ( #inputs ) #output {
             let level = INDENT.fetch_add(1, std::sync::atomic::Ordering::AcqRel);
-            let indent = "|  ".repeat(level);
+            let indent = "  ".repeat(level);
 
             #entry
             let mut inner = || #block;
             let result = inner();
-            #exit
+            if !result.is_error() {
+                #exit
+            } else {
+                #exit_error
+            }
 
             let _ = INDENT.fetch_sub(1, std::sync::atomic::Ordering::AcqRel);
             result
