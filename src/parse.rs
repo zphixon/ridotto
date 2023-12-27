@@ -16,77 +16,92 @@ pub enum TreeKind {
     NormalType,
     FuncType,
     TupleType,
+    Block,
+    Expr,
+    Literal,
+    Variable,
+    Paren,
+    Call,
+    ArgList,
+    Arg,
+    ExprBinary,
+    ArrayIndex,
+    DotAccess,
 }
 
 #[rustfmt::skip]
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Logos)]
 #[logos(skip r"\s+")]
 pub enum Token {
-    #[regex("_?[A-Z][a-zA-Z0-9_]*")] UpperIdent,
-    #[regex("_?[a-z][a-zA-Z0-9_]*")] LowerIdent,
     #[token("[")] LSquare,
     #[token("]")] RSquare,
     #[token("(")] LParen,
     #[token(")")] RParen,
     #[token("{")] LCurly,
     #[token("}")] RCurly,
+    #[token("-")] Minus,
     #[token("->")] Arrow,
     #[token("&")] Amp,
+    #[token("&&")] DoubleAmp,
     #[token(".")] Dot,
+    #[token("..")] DoubleDot,
     #[token(",")] Comma,
-    #[token("type")] TypeKw,
-    #[token("where")] WhereKw,
     #[token("=")] Equal,
+    #[token("==")] DoubleEqual,
     #[token(":")] Colon,
-    #[token("is")] IsKw,
+    #[token("+")] Plus,
+    #[token("!")] Exclam,
+    #[token("!=")] ExclamEqual,
+    #[token("~")] Tilde,
+    #[token("@")] At,
+    #[token("^")] Caret,
+    #[token("*")] Star,
+    #[token("/")] Slash,
+    #[token("%")] Percent,
+    #[token("<")] LAngle,
+    #[token("<<")] DoubleLAngle,
+    #[token("<=")] LessEqual,
+    #[token("<>")] NotEqual,
+    #[token(">")] RAngle,
+    #[token(">>")] DoubleRAngle,
+    #[token(">=")] GreaterEqual,
+    #[token("|")] Pipe,
+    #[token("||")] DoublePipe,
+    #[token("_")] Underscore,
+    #[token("class")] ClassKw,
+    #[token("impl")] ImplKw,
     #[token("async")] AsyncKw,
     #[token("const")] ConstKw,
     #[token("export")] ExportKw,
     #[token("builtin")] BuiltinKw,
     #[token("static")] StaticKw,
     #[token("func")] FuncKw,
-    #[regex(r#"(0[box])?[0-9](\.[0-9])?(e[-+]?[0-9]+)?"#)] Number,
-    #[regex("[0-9]+", priority = 2)] WholeNumber,
-    #[token("-")] Minus,
-    #[token("+")] Plus,
-    #[token("!")] Exclam,
-    #[token("~")] Tilde,
-    #[token("@")] At,
-    #[token("^")] Caret,
-    #[token("await")] AwaitKw,
-    #[token("yield")] YieldKw,
-    #[token("*")] Star,
-    #[token("/")] Slash,
-    #[token("%")] Percent,
-    #[token("|")] Pipe,
-    #[token("<<")] DoubleLAngle,
-    #[token(">>")] DoubleRAngle,
-    #[token(">")] RAngle,
-    #[token("<")] LAngle,
-    #[token(">=")] GreaterEqual,
-    #[token("<=")] LessEqual,
-    #[token("==")] DoubleEqual,
-    #[token("!=")] ExclamEqual,
-    #[token("<>")] NotEqual,
+    #[token("type")] TypeKw,
+    #[token("where")] WhereKw,
+    #[token("is")] IsKw,
+    #[token("for")] ForKw,
     #[token("in")] InKw,
+    #[token("match")] MatchKw,
+    #[token("let")] LetKw,
+    #[token("if")] IfKw,
+    #[token("else")] ElseKw,
     #[token("and")] AndKw,
-    #[token("&&")] DoubleAmp,
     #[token("or")] OrKw,
-    #[token("||")] DoublePipe,
     #[token("true")] TrueKw,
     #[token("false")] FalseKw,
+    #[token("await")] AwaitKw,
+    #[token("yield")] YieldKw,
+    #[token("break")] BreakKw,
+    #[token("return")] ReturnKw,
+    #[token("continue")] ContinueKw,
+
+    #[regex(r#"(0[box])?[0-9](\.[0-9])?(e[-+]?[0-9]+)?"#)] Number,
+    #[regex("[0-9]+", priority = 2)] WholeNumber,
     #[regex(r#"'(\\.|[^'])+'"#)] String,
-    #[token("match")] MatchKw,
-    #[token("if")] IfKw,
-    #[token("let")] LetKw,
-    #[token("_")] Underscore,
-    #[token("..")] DoubleDot,
-    #[token("class")] ClassKw,
-    #[token("impl")] ImplKw,
-    #[token("for")] ForKw,
-    #[token("else")] ElseKw,
     #[regex("#[^#\n]*")] Comment,
     #[regex("##[^\n]*")] DocComment,
+    #[regex("_?[A-Z][a-zA-Z0-9_]*")] UpperIdent,
+    #[regex("_?[a-z][a-zA-Z0-9_]*")] LowerIdent,
 
     ErrorT,
     Eof,
@@ -144,23 +159,52 @@ pub fn span_to_line_col(src: &str, span: Span) -> Pos {
     Pos { line, col }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct WithSpan<'src> {
     token: Token,
     span: Span,
     lexeme: &'src str,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct Tree<'src> {
     pub kind: TreeKind,
     pub children: Vec<Child<'src>>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub enum Child<'src> {
     Token(WithSpan<'src>),
     Tree(Tree<'src>),
+}
+
+impl Tree<'_> {
+    fn debug(&self, level: usize) -> String {
+        let indent = "  ".repeat(level);
+
+        let mut result = format!("{}{:?}\n", indent, self.kind);
+        for child in self.children.iter() {
+            result += &child.debug(level + 1);
+        }
+
+        result
+    }
+}
+
+impl Child<'_> {
+    fn debug(&self, level: usize) -> String {
+        let indent = "  ".repeat(level);
+        match self {
+            Child::Token(token) => format!("{}{:?}\n", indent, token.lexeme),
+            Child::Tree(tree) => tree.debug(level),
+        }
+    }
+}
+
+impl Debug for Tree<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.debug(0))
+    }
 }
 
 enum Event {
@@ -177,12 +221,24 @@ struct MarkClosed {
     index: usize,
 }
 
+impl Debug for MarkClosed {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "MarkClosed")
+    }
+}
+
 struct Parser<'src> {
     tokens: Vec<WithSpan<'src>>,
     src: &'src str,
     pos: usize,
     fuel: Cell<u32>,
     events: Vec<Event>,
+}
+
+impl Debug for Parser<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Parser {{ .. }}")
+    }
 }
 
 pub fn parse(src: &str) -> Tree {
@@ -215,6 +271,7 @@ pub fn parse(src: &str) -> Tree {
 }
 
 impl<'src> Parser<'src> {
+    #[must_use]
     fn open(&mut self) -> MarkOpened {
         let mark = MarkOpened {
             index: self.events.len(),
@@ -253,7 +310,7 @@ impl<'src> Parser<'src> {
         self.pos == self.tokens.len()
     }
 
-    fn nth(&self, lookahead: usize) -> WithSpan {
+    fn nth(&self, lookahead: usize) -> WithSpan<'src> {
         if self.fuel.get() == 0 {
             panic!("parser stuck");
         }
@@ -263,13 +320,21 @@ impl<'src> Parser<'src> {
             .cloned()
             .unwrap_or(WithSpan {
                 token: Token::Eof,
-                span: 0..self.src.len(),
+                span: if self.src.is_empty() {
+                    0..1
+                } else {
+                    self.src.len() - 1..self.src.len()
+                },
                 lexeme: "",
             })
     }
 
     fn at(&self, token: Token) -> bool {
         self.nth(0).token == token
+    }
+
+    fn at_any(&self, tokens: &[Token]) -> bool {
+        tokens.iter().any(|&token| self.at(token))
     }
 
     fn eat(&mut self, token: Token) -> bool {
@@ -284,8 +349,20 @@ impl<'src> Parser<'src> {
     fn expect(&mut self, token: Token) {
         if self.eat(token) {
             return;
+        } else {
+            let mark = self.open();
+            self.close(mark, TreeKind::Error);
         }
-        println!("expected {:?}, got {:?}", token, self.nth(0));
+        println!(
+            "expected {:?}, got {} at {:?}",
+            token,
+            if self.eof() {
+                "eof".into()
+            } else {
+                format!("{:?}", self.nth(0).lexeme)
+            },
+            span_to_line_col(self.src, self.nth(0).span),
+        );
     }
 
     fn advance_with_error(&mut self, error: &str) {
@@ -331,10 +408,13 @@ impl<'src> Parser<'src> {
 }
 
 mod inner {
+    macros::setup_trace!();
+
     use super::*;
     use Token::*;
     use TreeKind::*;
 
+    #[macros::parser_traced]
     pub fn file(parser: &mut Parser) {
         let mark = parser.open();
         while !parser.eof() {
@@ -347,6 +427,7 @@ mod inner {
         parser.close(mark, File);
     }
 
+    #[macros::parser_traced]
     fn func(parser: &mut Parser) {
         assert!(parser.at(FuncKw));
         let mark = parser.open();
@@ -366,6 +447,7 @@ mod inner {
         parser.close(mark, Func);
     }
 
+    #[macros::parser_traced]
     fn param_list(parser: &mut Parser) {
         assert!(parser.at(LParen));
         let mark = parser.open();
@@ -386,6 +468,7 @@ mod inner {
         parser.close(mark, ParamList);
     }
 
+    #[macros::parser_traced]
     fn type_expr(parser: &mut Parser) {
         let mark = parser.open();
 
@@ -403,6 +486,7 @@ mod inner {
         parser.close(mark, TypeExpr);
     }
 
+    #[macros::parser_traced]
     fn tuple_or_func_type(parser: &mut Parser) {
         assert!(parser.at(LParen));
         let mark = parser.open();
@@ -438,6 +522,7 @@ mod inner {
         }
     }
 
+    #[macros::parser_traced]
     fn normal_type(parser: &mut Parser) {
         assert!(parser.at(UpperIdent));
         let mark = parser.open();
@@ -462,11 +547,185 @@ mod inner {
         parser.close(mark, NormalType);
     }
 
+    #[macros::parser_traced]
     fn block(parser: &mut Parser) {
+        assert!(parser.at(LCurly));
+        let mark = parser.open();
+
         parser.expect(LCurly);
+        while !parser.eof() && !parser.at(RCurly) {
+            match parser.nth(0).token {
+                LetKw => todo!(),
+                ReturnKw => todo!(),
+                BreakKw => todo!(),
+                ContinueKw => todo!(),
+                _ => {
+                    expr(parser);
+                }
+            }
+        }
         parser.expect(RCurly);
+
+        parser.close(mark, Block);
     }
 
+    const EXPR_FIRST: &[Token] = &[
+        LowerIdent,
+        UpperIdent,
+        LParen,
+        Number,
+        WholeNumber,
+        IfKw,
+        AwaitKw,
+        YieldKw,
+        MatchKw,
+        Star,
+        Minus,
+        Caret,
+        Amp,
+        At,
+        Tilde,
+        Exclam,
+    ];
+    #[macros::parser_traced]
+    fn expr(parser: &mut Parser) {
+        let mark = parser.open();
+        expr_rec(parser, Eof);
+        parser.close(mark, Expr);
+    }
+
+    #[macros::parser_traced]
+    fn expr_rec(parser: &mut Parser, left: Token) {
+        let Some(mut lhs) = expr_delimited(parser) else {
+            return;
+        };
+
+        loop {
+            match parser.nth(0).token {
+                LParen => {
+                    let mark = parser.open_before(lhs);
+                    arg_list(parser);
+                    lhs = parser.close(mark, Call);
+                }
+
+                LSquare => {
+                    let mark = parser.open_before(lhs);
+                    parser.expect(LSquare);
+                    expr(parser);
+                    parser.expect(RSquare);
+                    lhs = parser.close(mark, ArrayIndex);
+                }
+
+                _ => break,
+            }
+        }
+
+        while parser.at(LParen) {
+            let mark = parser.open_before(lhs);
+            arg_list(parser);
+            lhs = parser.close(mark, Call);
+        }
+
+        loop {
+            let right = parser.nth(0);
+            if right_binds_tighter(left, right.token) {
+                let mark = parser.open_before(lhs);
+                parser.advance();
+                expr_rec(parser, right.token);
+                lhs = parser.close(mark, ExprBinary);
+            } else {
+                break;
+            }
+        }
+    }
+
+    #[macros::parser_traced]
+    fn right_binds_tighter(left: Token, right: Token) -> bool {
+        #[rustfmt::skip]
+        fn tightness(kind: Token) -> Option<usize> {
+            [
+                [Star, Slash, Percent].as_slice(),
+                [Plus, Minus].as_slice(),
+                [Caret, Amp, Pipe, DoubleLAngle, DoubleRAngle].as_slice(),
+                [LAngle, RAngle, GreaterEqual, LessEqual, DoubleEqual, ExclamEqual, NotEqual, InKw].as_slice(),
+                [OrKw, DoubleAmp].as_slice(),
+                [DoublePipe, OrKw].as_slice(),
+            ].iter().position(|level| level.contains(&kind))
+        }
+
+        let Some(right_tight) = tightness(right) else {
+            return false;
+        };
+        let Some(left_tight) = tightness(left) else {
+            assert!(left == Eof);
+            return true;
+        };
+
+        right_tight > left_tight
+    }
+
+    #[macros::parser_traced]
+    fn expr_delimited(parser: &mut Parser) -> Option<MarkClosed> {
+        let mark = parser.open();
+
+        match parser.nth(0).token {
+            Number | WholeNumber | String | TrueKw | FalseKw => {
+                parser.advance();
+                Some(parser.close(mark, Literal))
+            }
+
+            LowerIdent => {
+                parser.advance();
+
+                let mut dot_access = false;
+                while !parser.eof() && parser.at(Dot) {
+                    dot_access = true;
+                    parser.expect(Dot);
+                    parser.expect(LowerIdent);
+                }
+
+                if dot_access {
+                    Some(parser.close(mark, DotAccess))
+                } else {
+                    Some(parser.close(mark, Variable))
+                }
+            }
+
+            LParen => {
+                parser.expect(LParen);
+                expr(parser);
+                parser.expect(RParen);
+                Some(parser.close(mark, Paren))
+            }
+
+            _ => None,
+        }
+    }
+
+    #[macros::parser_traced]
+    fn arg_list(parser: &mut Parser) {
+        assert!(parser.at(LParen));
+        let mark = parser.open();
+
+        parser.expect(LParen);
+        while !parser.eof() && !parser.at(RParen) {
+            if parser.at_any(EXPR_FIRST) {
+                let arg_mark = parser.open();
+                expr(parser);
+                if !parser.at(RParen) {
+                    parser.expect(Comma);
+                }
+                parser.close(arg_mark, Arg);
+            } else {
+                break;
+            }
+        }
+        parser.expect(RParen);
+
+        parser.close(mark, ArgList);
+    }
+
+    #[macros::parser_traced]
     fn type_annotated(parser: &mut Parser) {
         assert!(parser.at(LowerIdent));
         let mark = parser.open();

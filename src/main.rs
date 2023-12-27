@@ -1,5 +1,3 @@
-use logos::Logos;
-
 mod parse;
 mod typeck;
 
@@ -37,6 +35,9 @@ func main(args: List[&String]) {
 #        }
 #    }
 #    #let x = Z { .. a, b }
+}
+func main(){
+    a.b.main(a, a,(asdf)[asjfi](uaowoaoaoa)
 }
 "#;
 
