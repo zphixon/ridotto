@@ -4,11 +4,7 @@
 # builtin rules that look like function calls. repeats like regexes. alternation
 # with |. sequences with juxtaposition. parens if necessary. just make it readable
 
-# may appear anywhere anywhere between terminals
-_anywhere: /#.*\n/
-
-# root rule
-_grammar: typeDecl | func | class | impl
+file: typeDecl | func | class | impl
 
 upperIdent: /[A-Z_][a-zA-Z0-9_]+/
 lowerIdent: /[a-z_][a-zA-Z0-9_]+/

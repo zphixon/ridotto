@@ -7,35 +7,36 @@ fn main() {
     tracing_subscriber::fmt::init();
 
     let src = r#"
-type Atype {
-    Michael {
-        x: Int
-    }
-    Tomlinson
-}
-
+#type Atype {
+#    Michael {
+#        x: Int
+#    }
+#    Tomlinson
+#}
+#
+# woweeeeeee
 func main(args: List[&String]) {
-    #let d = X { y, ..args },
-    let a = Atype.Bjeif.Froosh {
-        y,
-        b: @47
-    }
-    let b = &Atype.Bjeif.Froosh {
-        y: 32,
-        b: 47
-    }
-    $
-    match b {
-        Atype.Bjief.Froosh { y, a, .. } if a == 47 {
-            bff
-        }
-        _ | Maybe { y, .. }  | Bool.False | Bool.True if y == 3 {
-            let x = (y + b)
-            #let (x, y) = (y, x)
-            nopington
-        }
-    }
-    #let x = Z { .. a, b }
+#    #let d = X { y, ..args },
+#    let a = Atype.Bjeif.Froosh {
+#        y,
+#        b: @47
+#    }
+#    let b = &Atype.Bjeif.Froosh {
+#        y: 32,
+#        b: 47
+#    }
+#    $
+#    match b {
+#        Atype.Bjief.Froosh { y, a, .. } if a == 47 {
+#            bff
+#        }
+#        _ | Maybe { y, .. }  | Bool.False | Bool.True if y == 3 {
+#            let x = (y + b)
+#            #let (x, y) = (y, x)
+#            nopington
+#        }
+#    }
+#    #let x = Z { .. a, b }
 }
 "#;
 
@@ -108,12 +109,24 @@ func main(args: List[&String]) {
     //    //println!("{:?}", token);
     //}
 
-    let mut bruh = parse::Token::lexer(src);
-    loop {
-        let token = bruh.next();
-        println!("{:?} {:?} {:?}", bruh.span(), bruh.slice(), token);
-        if token == parse::Token::Eof {
-            break;
-        }
-    }
+    //let mut bruh = parse::Token::lexer(src);
+    //loop {
+    //    let token = bruh.next();
+    //    if token == parse::Token::Comment {
+    //        continue;
+    //    }
+
+    //    println!(
+    //        "{:?} {:?} {:?}",
+    //        parse::span_to_line_col(src, bruh.span()),
+    //        bruh.slice(),
+    //        token
+    //    );
+
+    //    if token == parse::Token::Eof {
+    //        break;
+    //    }
+    //}
+
+    println!("{:#?}", parse::parse(src));
 }
