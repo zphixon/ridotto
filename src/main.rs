@@ -5,12 +5,12 @@ fn main() {
     tracing_subscriber::fmt::init();
 
     let src = r#"
-#type Atype {
-#    Michael {
-#        x: Int
-#    }
-#    Tomlinson
-#}
+type Atype {
+    Michael {
+        x: Int
+    }
+    Tomlinson
+}
 #
 # woweeeeeee
 func main(args: List[&String]) {
@@ -37,7 +37,7 @@ func main(args: List[&String]) {
 #    #let x = Z { .. a, b }
 }
 func main(){
-    a.b.main(a, a,(asdf)[asjfi](uaowoaoaoa)
+    a * 3 - 4
 }
 "#;
 
@@ -64,24 +64,24 @@ func main(){
 #        } else { nope }
 #    }
 #    
-#type Atype {
-#    y: bob.frob[i.do.not.like.green.eggs.and.ham]
-#    Michael {
-#        x: Int
-#        JJJJJJjjj
-#    }
-#    Tomlinson = Joo
-#    ## a tingus, a tangus
-#    Boblinson
-#    func bob(bobarg: int, bobarg2: Float) {
-#        let a = if bobarg == 0 {
-#            return
-#        }
-#         else {
-#            bob(bobarg - 1, bobarg2)
-#        }
-#    }
-#}
+type Atype {
+    y: bob.frob[i.do.not.like.green.eggs._and.ham]
+    Michael {
+        x: Int
+        JJJJJJjjj
+    }
+    Tomlinson = Joo
+    # a tingus, a tangus
+    Boblinson
+    func bob(bobarg: Int, bobarg2: Float) {
+        #let a = if bobarg == 0 {
+        #    return
+        #}
+        # else {
+        #    bob(bobarg - 1, bobarg2)
+        #}
+    }
+}
 
 #    func asdf(x: int, b: y) -> Asdf.Bsdf[Csdf, Dsdf,] {
 #        #let a = 3
@@ -129,5 +129,5 @@ func main(){
     //    }
     //}
 
-    println!("{:#?}", parse::parse(src));
+    println!("{:#?}", parse::parse(sarce));
 }

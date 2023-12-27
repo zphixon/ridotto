@@ -27,6 +27,12 @@ pub enum TreeKind {
     ExprBinary,
     ArrayIndex,
     DotAccess,
+    Unary,
+    TypeDecl,
+    TypeInner,
+    TypeAlias,
+    TypeProperty,
+    TypeVariant,
 }
 
 #[rustfmt::skip]
@@ -414,12 +420,17 @@ mod inner {
     use Token::*;
     use TreeKind::*;
 
+    const STARTS_FUNCTION: &[Token] = &[FuncKw, AsyncKw, ConstKw, ExportKw, BuiltinKw, StaticKw];
     #[macros::parser_traced]
     pub fn file(parser: &mut Parser) {
         let mark = parser.open();
         while !parser.eof() {
-            if parser.at(FuncKw) {
-                func(parser);
+            if parser.at_any(STARTS_FUNCTION) {
+                func_item(parser);
+            } else if parser.at(TypeKw) {
+                type_item(parser);
+            } else if parser.at(DocComment) {
+                parser.advance();
             } else {
                 parser.advance_with_error("expected an item");
             }
@@ -428,10 +439,60 @@ mod inner {
     }
 
     #[macros::parser_traced]
-    fn func(parser: &mut Parser) {
-        assert!(parser.at(FuncKw));
+    fn type_item(parser: &mut Parser) {
+        assert!(parser.at(TypeKw));
         let mark = parser.open();
 
+        parser.expect(TypeKw);
+        variant_or_inner_or_unit(parser);
+
+        parser.close(mark, TypeDecl);
+    }
+
+    #[macros::parser_traced]
+    fn type_variant(parser: &mut Parser) {
+        assert!(parser.at(LCurly));
+        let mark = parser.open();
+
+        parser.expect(LCurly);
+        while !parser.eof() && !parser.at(RCurly) {
+            if parser.at(LowerIdent) {
+                type_annotated(parser);
+            } else if parser.at(UpperIdent) {
+                variant_or_inner_or_unit(parser);
+            } else if parser.at_any(STARTS_FUNCTION) {
+                func_item(parser);
+            } else {
+                break;
+            }
+        }
+        parser.expect(RCurly);
+
+        parser.close(mark, TypeVariant);
+    }
+
+    #[macros::parser_traced]
+    fn variant_or_inner_or_unit(parser: &mut Parser) {
+        normal_type(parser);
+        if parser.at(LCurly) {
+            type_variant(parser);
+        } else if parser.at(Equal) {
+            let mark = parser.open();
+            parser.expect(Equal);
+            type_expr(parser);
+            parser.close(mark, TypeAlias);
+        }
+    }
+
+    const FUNC_MODS: &[Token] = &[AsyncKw, ConstKw, ExportKw, BuiltinKw, StaticKw];
+    #[macros::parser_traced]
+    fn func_item(parser: &mut Parser) {
+        assert!(parser.at_any(STARTS_FUNCTION));
+        let mark = parser.open();
+
+        while !parser.eof() && parser.at_any(FUNC_MODS) {
+            parser.advance();
+        }
         parser.expect(FuncKw);
         parser.expect(LowerIdent);
         if parser.at(LParen) {
@@ -472,12 +533,10 @@ mod inner {
     fn type_expr(parser: &mut Parser) {
         let mark = parser.open();
 
-        if parser.at(UpperIdent) {
+        if parser.at_any(&[UpperIdent, LowerIdent]) {
             normal_type(parser);
         } else if parser.at(LParen) {
             tuple_or_func_type(parser);
-        } else if parser.at(LowerIdent) {
-            parser.expect(LowerIdent);
         } else if parser.at(Amp) {
             parser.expect(Amp);
             type_expr(parser);
@@ -524,13 +583,21 @@ mod inner {
 
     #[macros::parser_traced]
     fn normal_type(parser: &mut Parser) {
-        assert!(parser.at(UpperIdent));
+        assert!(parser.at_any(&[UpperIdent, LowerIdent]));
         let mark = parser.open();
 
-        parser.expect(UpperIdent);
-        while !parser.eof() && parser.at(Dot) {
-            parser.expect(Dot);
+        if parser.at(UpperIdent) {
             parser.expect(UpperIdent);
+            while !parser.eof() && parser.at(Dot) {
+                parser.expect(Dot);
+                parser.expect(UpperIdent);
+            }
+        } else {
+            parser.expect(LowerIdent);
+            while !parser.eof() && parser.at(Dot) {
+                parser.expect(Dot);
+                parser.expect(LowerIdent);
+            }
         }
 
         if parser.at(LSquare) {
@@ -644,12 +711,12 @@ mod inner {
         #[rustfmt::skip]
         fn tightness(kind: Token) -> Option<usize> {
             [
-                [Star, Slash, Percent].as_slice(),
-                [Plus, Minus].as_slice(),
-                [Caret, Amp, Pipe, DoubleLAngle, DoubleRAngle].as_slice(),
-                [LAngle, RAngle, GreaterEqual, LessEqual, DoubleEqual, ExclamEqual, NotEqual, InKw].as_slice(),
-                [OrKw, DoubleAmp].as_slice(),
                 [DoublePipe, OrKw].as_slice(),
+                [OrKw, DoubleAmp].as_slice(),
+                [LAngle, RAngle, GreaterEqual, LessEqual, DoubleEqual, ExclamEqual, NotEqual, InKw].as_slice(),
+                [Caret, Amp, Pipe, DoubleLAngle, DoubleRAngle].as_slice(),
+                [Plus, Minus].as_slice(),
+                [Star, Slash, Percent].as_slice(),
             ].iter().position(|level| level.contains(&kind))
         }
 
@@ -696,6 +763,12 @@ mod inner {
                 expr(parser);
                 parser.expect(RParen);
                 Some(parser.close(mark, Paren))
+            }
+
+            Star | Minus | Caret | Amp | At | Tilde | Exclam => {
+                parser.advance();
+                expr(parser);
+                Some(parser.close(mark, Unary))
             }
 
             _ => None,

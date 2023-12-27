@@ -57,8 +57,8 @@ pub fn parser_traced(_args: TokenStream, input: TokenStream) -> TokenStream {
 
     let (entry, exit) = if has_parser {
         (
-            quote::quote! { ::tracing::trace!("{}> {} {:?}", indent, #name, parser.nth(0).token); },
-            quote::quote! { ::tracing::trace!("{}< {} {:?} {:?}", indent, #name, parser.nth(0).token, result); },
+            quote::quote! { ::tracing::trace!("{}> {} {:?}", indent, #name, parser.nth(0).lexeme); },
+            quote::quote! { ::tracing::trace!("{}< {} {:?} {:?}", indent, #name, parser.nth(0).lexeme, result); },
         )
     } else {
         (
