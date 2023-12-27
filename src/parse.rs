@@ -7,8 +7,6 @@ use std::{
     ops::{Bound, Deref, RangeBounds}, error,
 };
 
-use crate::ast::Ast;
-
 #[rustfmt::skip]
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Logos)]
 #[logos(skip r"\s+")]
@@ -223,7 +221,7 @@ impl<'src> From<Option<SpannedToken<'src>>> for SpannedToken<'src> {
     }
 }
 
-pub fn parse(src: &str) -> Ast {
+pub fn parse(src: &str) {
     let mut lexer: Peekable<_> = Token::lexer(src)
         .spanned()
         .filter(|(token, _)| token.to_token() != Token::Comment)
@@ -246,8 +244,6 @@ pub fn parse(src: &str) -> Ast {
         })
         .peekable();
 
-    let mut ast = Vec::new();
-
     let mut treeeee = Vec::new();
     while lexer.peek().is_some() {
         treeeee.push(paren(&mut lexer));
@@ -255,8 +251,6 @@ pub fn parse(src: &str) -> Ast {
     for tree in treeeee {
         println!("{:?}", tree);
     }
-
-    ast
 }
 
 // TreeKind approach
