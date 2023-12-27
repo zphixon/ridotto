@@ -2,9 +2,9 @@
 
 use logos::Logos;
 use std::{
-    fmt::{Debug, write},
+    fmt::{Debug, Display},
     iter::Peekable,
-    ops::{Bound, Deref, RangeBounds}, error,
+    ops::{Bound, RangeBounds},
 };
 
 #[rustfmt::skip]
@@ -155,7 +155,7 @@ impl Debug for Pos {
 }
 
 pub fn span_to_line_col(src: &str, span: Span) -> Pos {
-    let mut line = 0;
+    let mut line = 1;
     let mut col = 1;
 
     for (byte_i, byte) in src.bytes().enumerate() {
@@ -190,6 +190,7 @@ pub struct SpannedToken<'src> {
     pub token: Token,
     pub span: Span,
     pub lexeme: &'src str,
+    pub src: &'src str,
 }
 
 impl Default for SpannedToken<'_> {
@@ -198,6 +199,7 @@ impl Default for SpannedToken<'_> {
             token: Token::Eof,
             span: Span::default(),
             lexeme: "",
+            src: "",
         }
     }
 }
@@ -212,11 +214,7 @@ impl<'src> From<Option<SpannedToken<'src>>> for SpannedToken<'src> {
     fn from(value: Option<SpannedToken<'src>>) -> Self {
         match value {
             Some(st) => st,
-            None => SpannedToken {
-                token: Token::Eof,
-                span: Span::default(),
-                lexeme: "",
-            },
+            None => SpannedToken::default(),
         }
     }
 }
@@ -241,6 +239,7 @@ pub fn parse(src: &str) {
                     _ => unreachable!(),
                 },
             },
+            src,
         })
         .peekable();
 
@@ -249,7 +248,7 @@ pub fn parse(src: &str) {
         treeeee.push(paren(&mut lexer));
     }
     for tree in treeeee {
-        println!("{:?}", tree);
+        println!("{}", tree);
     }
 }
 
@@ -260,6 +259,7 @@ pub fn parse(src: &str) {
 //         add the error as a child
 //         attempt to recover
 
+#[derive(Debug)]
 enum Tree<'src> {
     Error(Box<Tree<'src>>),
     Token(SpannedToken<'src>),
@@ -286,17 +286,21 @@ impl<'src> Tree<'src> {
         match self {
             Tree::Error(error) => {
                 s += "error\n";
-                s += &error.debug_rec(level+1);
-            },
+                s += &error.debug_rec(level + 1);
+            }
             Tree::Token(token) => {
-                s += &format!("{:?}\n", token.lexeme);
-            },
+                s += &format!(
+                    "{:?} {:?}\n",
+                    token.lexeme,
+                    span_to_line_col(token.src, token.span)
+                );
+            }
             Tree::Paren(paren) => {
                 s += "paren\n";
                 for child in paren {
-                    s += &child.debug_rec(level+1);
+                    s += &child.debug_rec(level + 1);
                 }
-            },
+            }
             Tree::Nice(_) => s += "nice\n",
         }
 
@@ -304,7 +308,7 @@ impl<'src> Tree<'src> {
     }
 }
 
-impl Debug for Tree<'_> {
+impl Display for Tree<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.debug_rec(0))
     }

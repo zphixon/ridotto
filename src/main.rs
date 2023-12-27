@@ -4,7 +4,7 @@ mod typeck;
 fn main() {
     tracing_subscriber::fmt::init();
 
-    let src = r#"
+    let _src = r#"
 type Atype {
     Michael {
         x: Int
@@ -46,7 +46,7 @@ func main(){
 
     //let src = "type Asdf";
 
-    let sarce = r#"
+    let _sarce = r#"
 
     #func m() {
     #    match m {
@@ -103,7 +103,7 @@ type Atype {
     
     "#;
 
-    let x = 0.3e0;
+    let _x = 0.3e0;
 
     //let ts = parse::lex(src);
     //for token in ts {
@@ -129,5 +129,27 @@ type Atype {
     //    }
     //}
 
-    println!("{:#?}", parse::parse("(nice, (nice, nice, nice, (nice, nice), nice), nice, (nice))"));
+    println!(
+        "{:#?}",
+        parse::parse(
+            "
+(
+    nice,
+    (
+        nice,
+        nice,
+        nice,
+        (
+            nice,
+            nice ahahaa
+        ),
+        nice
+    ),
+    nice,
+    (
+        nice
+    )
+)"
+        )
+    );
 }

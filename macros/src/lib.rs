@@ -1,10 +1,6 @@
-use proc_macro::{Ident, TokenStream};
+use proc_macro::TokenStream;
 use quote::ToTokens;
-use syn::{
-    bracketed, parse::Parse, parse_macro_input, punctuated::Punctuated, Error, FnArg,
-    Ident as SynIdent, ItemFn, Pat, PatIdent, PatType, Path, Signature, Token, Type, TypePath,
-    TypeReference,
-};
+use syn::{parse_macro_input, FnArg, ItemFn, Pat, PatIdent, PatType, Signature};
 
 #[proc_macro]
 pub fn setup_trace(_: TokenStream) -> TokenStream {
@@ -40,19 +36,18 @@ pub fn parser_function(_args: TokenStream, input: TokenStream) -> TokenStream {
 
     let (entry, exit, exit_error) = if has_lexer {
         if name == "consume" {
-
-        (
-            quote::quote! { ::tracing::trace!(" {} -> {} {:?} {:?}", indent, #name, token, lexer.peek().copied().lexeme()); },
-            quote::quote! { ::tracing::trace!(" {} <- {} {:?} {:?}", indent, #name, token, lexer.peek().copied().lexeme()); },
-            quote::quote! { ::tracing::trace!("*{} <- {} {:?} {:?}", indent, #name, token, lexer.peek().copied().lexeme()); },
-        )
-        }else {
-        (
-            quote::quote! { ::tracing::trace!(" {} -> {} {:?}", indent, #name, lexer.peek().copied().lexeme()); },
-            quote::quote! { ::tracing::trace!(" {} <- {} {:?}", indent, #name, lexer.peek().copied().lexeme()); },
-            quote::quote! { ::tracing::trace!("*{} <- {} {:?}", indent, #name, lexer.peek().copied().lexeme()); },
-        )
-    }
+            (
+                quote::quote! { ::tracing::trace!(" {} -> {} {:?} {:?}", indent, #name, token, lexer.peek().copied().lexeme()); },
+                quote::quote! { ::tracing::trace!(" {} <- {} {:?} {:?}", indent, #name, token, lexer.peek().copied().lexeme()); },
+                quote::quote! { ::tracing::trace!("*{} <- {} {:?} {:?}", indent, #name, token, lexer.peek().copied().lexeme()); },
+            )
+        } else {
+            (
+                quote::quote! { ::tracing::trace!(" {} -> {} {:?}", indent, #name, lexer.peek().copied().lexeme()); },
+                quote::quote! { ::tracing::trace!(" {} <- {} {:?}", indent, #name, lexer.peek().copied().lexeme()); },
+                quote::quote! { ::tracing::trace!("*{} <- {} {:?}", indent, #name, lexer.peek().copied().lexeme()); },
+            )
+        }
     } else {
         (
             quote::quote! { ::tracing::trace!(" {} -> {}", indent, #name); },
