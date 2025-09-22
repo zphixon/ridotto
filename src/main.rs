@@ -4,16 +4,18 @@ mod typeck;
 fn main() {
     tracing_subscriber::fmt::init();
 
+    //runtime::example();
+
     let _src = r#"
 type Atype {
     Michael {
         x: Int
     }
-    Tomlinson
+    Tomlinson,
 }
 #
 # woweeeeeee
-func main(args: List[&String]) {
+func main(args: List[String], env: Map[String, String]) {
 #    #let d = X { y, ..args },
 #    let a = Atype.Bjeif.Froosh {
 #        y,
@@ -36,9 +38,9 @@ func main(args: List[&String]) {
 #    }
 #    #let x = Z { .. a, b }
 }
-func main(){
-    a * 3 - 4
-}
+#func main(){
+#    a * 3 - 4
+#}
 "#;
 
     //let src = std::fs::read_to_string(std::env::args().nth(1).unwrap_or("sample.ridotto".into()))
@@ -131,25 +133,6 @@ type Atype {
 
     println!(
         "{:#?}",
-        parse::parse(
-            "
-(
-    nice,
-    (
-        nice,
-        nice,
-        nice,
-        (
-            nice,
-            nice ahahaa
-        ),
-        nice
-    ),
-    nice,
-    (
-        nice
-    )
-)"
-        )
+        parse::parse(_src),
     );
 }

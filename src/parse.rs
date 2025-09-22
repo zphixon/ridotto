@@ -2,15 +2,17 @@
 
 use logos::Logos;
 use std::{
+    cell::Cell,
+    collections::HashSet,
     fmt::{Debug, Display},
     iter::Peekable,
     ops::{Bound, RangeBounds},
 };
 
 #[rustfmt::skip]
-#[derive(Clone, Copy, PartialEq, Eq, Debug, Logos)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Logos)]
 #[logos(skip r"\s+")]
-pub enum Token {
+pub enum TokenKind {
     #[token("[")] LSquare,
     #[token("]")] RSquare,
     #[token("(")] LParen,
@@ -73,56 +75,65 @@ pub enum Token {
     #[token("break")] BreakKw,
     #[token("return")] ReturnKw,
     #[token("continue")] ContinueKw,
+    #[token("self")] SelfKw,
 
     #[regex(r#"(0[box])?[0-9](\.[0-9])?(e[-+]?[0-9]+)?"#)] Number,
-    #[regex("[0-9]+", priority = 2)] WholeNumber,
+    #[regex("[0-9]+", priority = 3)] WholeNumber,
     #[regex(r#"'(\\.|[^'])+'"#)] String,
     #[regex("#[^#\n]*")] Comment,
     #[regex("##[^\n]*")] DocComment,
     #[regex("_?[A-Z][a-zA-Z0-9_]*")] UpperIdent,
     #[regex("_?[a-z][a-zA-Z0-9_]*")] LowerIdent,
 
-    ErrorT,
+    Error,
     Eof,
 }
 
-trait ToToken {
-    fn to_token(&self) -> Token;
+const FUNC_MODIFIERS: &[TokenKind] = &[
+    TokenKind::AsyncKw,
+    TokenKind::ConstKw,
+    TokenKind::BuiltinKw,
+    TokenKind::StaticKw,
+    TokenKind::ExportKw,
+];
+
+trait ToTokenKind {
+    fn to_token_kind(&self) -> TokenKind;
 }
 
-impl ToToken for Token {
-    fn to_token(&self) -> Token {
+impl ToTokenKind for TokenKind {
+    fn to_token_kind(&self) -> TokenKind {
         *self
     }
 }
 
-impl<T: ToToken> ToToken for Option<T> {
-    fn to_token(&self) -> Token {
+impl<T: ToTokenKind> ToTokenKind for Option<T> {
+    fn to_token_kind(&self) -> TokenKind {
         match self {
-            Some(token) => token.to_token(),
-            None => Token::Eof,
+            Some(token) => token.to_token_kind(),
+            None => TokenKind::Eof,
         }
     }
 }
 
-impl<T: ToToken, E> ToToken for Result<T, E> {
-    fn to_token(&self) -> Token {
+impl<T: ToTokenKind, E> ToTokenKind for Result<T, E> {
+    fn to_token_kind(&self) -> TokenKind {
         match self {
-            Ok(token) => token.to_token(),
-            Err(_) => Token::ErrorT,
+            Ok(token) => token.to_token_kind(),
+            Err(_) => TokenKind::Error,
         }
     }
 }
 
-impl ToToken for &SpannedToken<'_> {
-    fn to_token(&self) -> Token {
-        self.token
+impl ToTokenKind for &Token<'_> {
+    fn to_token_kind(&self) -> TokenKind {
+        self.kind
     }
 }
 
-impl ToToken for SpannedToken<'_> {
-    fn to_token(&self) -> Token {
-        self.token
+impl ToTokenKind for Token<'_> {
+    fn to_token_kind(&self) -> TokenKind {
+        self.kind
     }
 }
 
@@ -130,13 +141,13 @@ trait Lexeme {
     fn lexeme(&self) -> &str;
 }
 
-impl Lexeme for SpannedToken<'_> {
+impl Lexeme for Token<'_> {
     fn lexeme(&self) -> &str {
         self.lexeme
     }
 }
 
-impl<'src> Lexeme for Option<SpannedToken<'src>> {
+impl<'src> Lexeme for Option<Token<'src>> {
     fn lexeme(&self) -> &'src str {
         self.unwrap_or_default().lexeme
     }
@@ -186,17 +197,17 @@ impl Span {
 }
 
 #[derive(Clone, Copy)]
-pub struct SpannedToken<'src> {
-    pub token: Token,
+pub struct Token<'src> {
+    pub kind: TokenKind,
     pub span: Span,
     pub lexeme: &'src str,
     pub src: &'src str,
 }
 
-impl Default for SpannedToken<'_> {
+impl Default for Token<'_> {
     fn default() -> Self {
-        SpannedToken {
-            token: Token::Eof,
+        Token {
+            kind: TokenKind::Eof,
             span: Span::default(),
             lexeme: "",
             src: "",
@@ -204,29 +215,83 @@ impl Default for SpannedToken<'_> {
     }
 }
 
-impl Debug for SpannedToken<'_> {
+impl Debug for Token<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{:?}", self.lexeme)
     }
 }
 
-impl<'src> From<Option<SpannedToken<'src>>> for SpannedToken<'src> {
-    fn from(value: Option<SpannedToken<'src>>) -> Self {
+impl<'src> From<Option<Token<'src>>> for Token<'src> {
+    fn from(value: Option<Token<'src>>) -> Self {
         match value {
             Some(st) => st,
-            None => SpannedToken::default(),
+            None => Token::default(),
         }
     }
 }
 
-pub fn parse(src: &str) {
-    let mut lexer: Peekable<_> = Token::lexer(src)
+#[derive(Debug)]
+pub enum TreeKind {
+    Error,
+    File,
+
+    Doc,
+
+    TypeAnnotated,
+    TypeExpr,
+    TypeRef,
+    TypeConcrete,
+    TypeVar,
+    TypeName,
+    TypeQualifierList,
+    FuncType,
+    FuncTypeArgList,
+    FuncTypeArg,
+
+    TypeDecl,
+    TypeDeclInner,
+    TypeDeclAlias,
+    TypeDeclFieldList,
+    TypeDeclVariant,
+    TypeDeclWhereList,
+    TypeDeclWhere,
+
+    FuncDecl,
+    FuncParam,
+
+    ClassDecl,
+    ImplDecl,
+}
+
+pub struct Tree<'src> {
+    pub kind: TreeKind,
+    pub children: Vec<Child<'src>>,
+}
+
+impl Debug for Tree<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut dbg = f.debug_tuple(&format!("{:?}", self.kind));
+        for child in self.children.iter() {
+            match child {
+                Child::Token(token) => {
+                    dbg.field(token);
+                }
+                Child::Tree(tree) => {
+                    dbg.field(tree);
+                }
+            }
+        }
+        dbg.finish()
+    }
+}
+
+pub fn parse(src: &str) -> Tree<'_> {
+    let tokens = TokenKind::lexer(src)
         .spanned()
-        .filter(|(token, _)| token.to_token() != Token::Comment)
-        .map(|(token, span)| SpannedToken {
-            token: match token {
+        .map(|(token, span)| Token {
+            kind: match token {
                 Ok(token) => token,
-                _ => Token::ErrorT,
+                _ => TokenKind::Error,
             },
             lexeme: &src[span.clone()],
             span: Span {
@@ -241,165 +306,360 @@ pub fn parse(src: &str) {
             },
             src,
         })
-        .peekable();
+        .filter(|token| token.kind != TokenKind::Comment)
+        .collect::<Vec<_>>();
 
-    let mut treeeee = Vec::new();
-    while lexer.peek().is_some() {
-        treeeee.push(paren(&mut lexer));
-    }
-    for tree in treeeee {
-        println!("{}", tree);
-    }
+    let mut parser = Parser {
+        tokens,
+        src,
+        pos: 0,
+        fuel: Cell::new(256),
+        events: vec![],
+    };
+
+    file(&mut parser);
+    parser.build_tree()
 }
-
-// TreeKind approach
-// start building a tree of type X
-//     parse children
-//     if child parse fails,
-//         add the error as a child
-//         attempt to recover
 
 #[derive(Debug)]
-enum Tree<'src> {
-    Error(Box<Tree<'src>>),
-    Token(SpannedToken<'src>),
-    Paren(Vec<Tree<'src>>),
-    Nice(SpannedToken<'src>),
+pub enum Child<'src> {
+    Token(Token<'src>),
+    Tree(Tree<'src>),
 }
 
-impl<'src> Tree<'src> {
-    fn is_error(&self) -> bool {
-        matches!(self, Tree::Error(_))
+enum Event {
+    Open { kind: TreeKind },
+    Close,
+    Advance,
+}
+
+struct MarkOpened {
+    index: usize,
+}
+
+struct Parser<'src> {
+    tokens: Vec<Token<'src>>,
+    src: &'src str,
+    pos: usize,
+    fuel: Cell<u32>,
+    events: Vec<Event>,
+}
+
+impl<'src> Parser<'src> {
+    fn open(&mut self) -> MarkOpened {
+        let mark = MarkOpened {
+            index: self.events.len(),
+        };
+        self.events.push(Event::Open {
+            kind: TreeKind::Error,
+        });
+        mark
     }
 
-    fn error_token(token: SpannedToken<'src>) -> Self {
-        Tree::Error(Box::new(Tree::Token(token)))
+    fn close(&mut self, m: MarkOpened, kind: TreeKind) {
+        self.events[m.index] = Event::Open { kind };
+        self.events.push(Event::Close);
     }
 
-    fn error_tree(tree: Tree<'src>) -> Self {
-        Tree::Error(Box::new(tree))
+    fn advance(&mut self) {
+        assert!(!self.eof());
+        self.fuel.set(256);
+        self.events.push(Event::Advance);
+        self.pos += 1;
     }
 
-    fn debug_rec(&self, level: usize) -> String {
-        let mut s = "  ".repeat(level);
+    fn eof(&self) -> bool {
+        self.pos == self.tokens.len()
+    }
 
-        match self {
-            Tree::Error(error) => {
-                s += "error\n";
-                s += &error.debug_rec(level + 1);
-            }
-            Tree::Token(token) => {
-                s += &format!(
-                    "{:?} {:?}\n",
-                    token.lexeme,
-                    span_to_line_col(token.src, token.span)
-                );
-            }
-            Tree::Paren(paren) => {
-                s += "paren\n";
-                for child in paren {
-                    s += &child.debug_rec(level + 1);
+    fn nth(&self, lookeahead: usize) -> Token<'src> {
+        if self.fuel.get() == 0 {
+            panic!("stuck");
+        }
+        self.fuel.set(self.fuel.get() - 1);
+        *self.tokens.get(self.pos + lookeahead).unwrap_or(&Token {
+            kind: TokenKind::Eof,
+            span: Span {
+                start: 0,
+                end_excl: 0,
+            },
+            lexeme: "",
+            src: self.src,
+        })
+    }
+
+    fn at(&mut self, kind: TokenKind) -> bool {
+        self.nth(0).kind == kind
+    }
+
+    fn at_any<'t>(&mut self, any: impl IntoIterator<Item = &'t TokenKind>) -> bool {
+        any.into_iter().any(|kind| *kind == self.nth(0).kind)
+    }
+
+    fn eat(&mut self, kind: TokenKind) -> bool {
+        if self.at(kind) {
+            self.advance();
+            true
+        } else {
+            false
+        }
+    }
+
+    fn expect(&mut self, kind: TokenKind) {
+        if self.eat(kind) {
+            return;
+        }
+        eprintln!("expected {:?}, got {:?}", kind, self.nth(0));
+    }
+
+    fn advance_error(&mut self, error: &str) {
+        let mark = self.open();
+        eprintln!("{error}");
+        self.advance();
+        self.close(mark, TreeKind::Error);
+    }
+
+    fn build_tree(self) -> Tree<'src> {
+        let mut tokens = self.tokens.into_iter();
+        let mut events = self.events;
+        let mut stack = Vec::new();
+
+        assert!(matches!(events.pop(), Some(Event::Close)));
+
+        for event in events {
+            match event {
+                Event::Open { kind } => {
+                    stack.push(Tree {
+                        kind,
+                        children: Vec::new(),
+                    });
+                }
+
+                Event::Close => {
+                    let tree = stack.pop().unwrap();
+                    stack.last_mut().unwrap().children.push(Child::Tree(tree));
+                }
+
+                Event::Advance => {
+                    let token = tokens.next().unwrap();
+                    stack.last_mut().unwrap().children.push(Child::Token(token));
                 }
             }
-            Tree::Nice(_) => s += "nice\n",
         }
 
-        s
+        assert_eq!(stack.len(), 1);
+        assert!(tokens.next().is_none());
+
+        stack.pop().unwrap()
     }
 }
 
-impl Display for Tree<'_> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.debug_rec(0))
-    }
-}
-
-macro_rules! recover {
-    ($lexer: ident, $($tok:ident),*) => {
-        let _ = $lexer.next();
-        while ![Token::Eof, $(Token::$tok,)*].contains(&$lexer.peek().to_token()) {
-            let _ = $lexer.next();
-        }
-    };
-}
-
-// (nice, (nice, nice, nice, (nice), nice), nice, (nice))
-
-#[macros::parser_function]
-fn paren<'src, I: Iterator<Item = SpannedToken<'src>>>(lexer: &mut Peekable<I>) -> Tree<'src> {
-    let mut children = Vec::new();
-
-    let lparen = consume(lexer, Token::LParen);
-    if lparen.is_error() {
-        recover!(lexer, LParen, Comma);
-        return lparen;
-    }
-
-    while lexer.peek().is_some() && lexer.peek().to_token() != Token::RParen {
-        if lexer.peek().to_token() == Token::LParen {
-            children.push(paren(lexer));
-        } else if lexer.peek().to_token() == Token::LowerIdent {
-            children.push(nice(lexer));
+fn file(p: &mut Parser) {
+    let mark = p.open();
+    while !p.eof() {
+        if p.at(TokenKind::TypeKw) {
+            type_decl(p);
+        } else if p.at(TokenKind::FuncKw) || p.at_any(FUNC_MODIFIERS) {
+            func_decl(p);
         } else {
-            children.push(Tree::error_token(lexer.peek().copied().into()));
-            recover!(lexer, RParen, Comma);
-        }
-
-        if lexer.peek().to_token() != Token::RParen {
-            let comma = consume(lexer, Token::Comma);
-            if comma.is_error() {
-                children.push(comma);
-                recover!(lexer, LowerIdent, LParen, RParen, Comma);
-            }
+            p.advance_error("Expected type declaration");
         }
     }
-
-    let rparen = consume(lexer, Token::RParen);
-    if rparen.is_error() {
-        children.push(rparen);
-        recover!(lexer, LParen, Comma);
-    }
-
-    Tree::Paren(children)
+    p.close(mark, TreeKind::File);
 }
 
-#[macros::parser_function]
-fn nice<'src, I: Iterator<Item = SpannedToken<'src>>>(lexer: &mut Peekable<I>) -> Tree<'src> {
-    let lower = consume(lexer, Token::LowerIdent);
-
-    if lower.is_error() {
-        return lower;
-    }
-
-    let Tree::Token(nice) = lower else {
-        return Tree::error_tree(lower);
-    };
-
-    if nice.lexeme != "nice" {
-        return Tree::error_token(nice);
-    }
-
-    Tree::Nice(nice)
+fn type_decl(p: &mut Parser) {
+    assert!(p.at(TokenKind::TypeKw));
+    let m = p.open();
+    p.expect(TokenKind::TypeKw);
+    type_decl_inner(p);
+    p.close(m, TreeKind::TypeDecl);
 }
 
-#[macros::parser_function]
-fn consume<'src, I: Iterator<Item = SpannedToken<'src>>>(
-    lexer: &mut Peekable<I>,
-    token: Token,
-) -> Tree<'src> {
-    assert_ne!(token, Token::Eof);
+fn type_decl_inner(p: &mut Parser) {
+    let m = p.open();
 
-    let next = lexer.next();
-    if next.to_token() == token {
-        Tree::Token(next.unwrap())
-    } else {
-        Tree::error_token(next.into())
+    p.expect(TokenKind::UpperIdent);
+
+    if p.at(TokenKind::LSquare) {
+        type_qual(p);
     }
+
+    if p.eat(TokenKind::LCurly) {
+        if p.at(TokenKind::LowerIdent) {
+            type_decl_fields(p);
+        }
+
+        while p.at(TokenKind::UpperIdent) {
+            type_decl_inner(p);
+            p.eat(TokenKind::Comma);
+        }
+
+        while p.at_any(FUNC_MODIFIERS) || p.at(TokenKind::FuncKw) {
+            func_decl(p);
+        }
+
+        p.expect(TokenKind::RCurly);
+    } else if p.eat(TokenKind::Equal) {
+        let m = p.open();
+        type_expr(p);
+        p.close(m, TreeKind::TypeDeclAlias);
+    }
+
+    p.close(m, TreeKind::TypeDeclInner);
 }
 
-macros::setup_trace!();
+fn func_decl(p: &mut Parser) {
+    let m = p.open();
 
-//#[macros::parser_function(recover = [])]
-//fn x<'src, I: Iterator<Item = SpannedToken<'src>>>(lexer: &mut Peekable<I>) -> Result<(), ()> {
-//    Err(())
-//}
+    while FUNC_MODIFIERS.contains(&p.nth(0).kind) {
+        p.advance();
+    }
+    p.expect(TokenKind::FuncKw);
+    p.expect(TokenKind::LowerIdent);
+
+    if p.at(TokenKind::LSquare) {
+        type_qual(p);
+    }
+
+    p.expect(TokenKind::LParen);
+    while !p.eof() && !p.at(TokenKind::RParen) {
+        if p.at(TokenKind::LowerIdent) {
+            func_param(p);
+        } else {
+            break
+        }
+    }
+    p.expect(TokenKind::RParen);
+
+    p.expect(TokenKind::LCurly);
+    // TODO
+    p.expect(TokenKind::RCurly);
+
+    p.close(m, TreeKind::FuncDecl);
+}
+
+fn func_param(p: &mut Parser) {
+    let m = p.open();
+    type_annotated(p);
+
+    if !p.at(TokenKind::RParen) {
+        p.expect(TokenKind::Comma);
+    }
+
+    p.close(m, TreeKind::FuncParam);
+}
+
+fn type_decl_fields(p: &mut Parser) {
+    let m = p.open();
+    while p.at(TokenKind::LowerIdent) {
+        type_annotated(p);
+        p.eat(TokenKind::Comma);
+    }
+    p.close(m, TreeKind::TypeDeclFieldList);
+}
+
+fn type_annotated(p: &mut Parser) {
+    let m = p.open();
+    p.expect(TokenKind::LowerIdent);
+    p.expect(TokenKind::Colon);
+    type_expr(p);
+    p.close(m, TreeKind::TypeAnnotated);
+}
+
+fn type_qual(p: &mut Parser) {
+    let m = p.open();
+
+    p.expect(TokenKind::LSquare);
+
+    type_expr(p);
+    while p.eat(TokenKind::Comma) {
+        type_expr(p);
+    }
+    p.eat(TokenKind::Comma);
+
+    p.expect(TokenKind::RSquare);
+
+    p.close(m, TreeKind::TypeQualifierList);
+}
+
+fn type_concrete(p: &mut Parser) {
+    let m = p.open();
+    type_name(p);
+    if p.at(TokenKind::LSquare) {
+        type_qual(p);
+    }
+    p.close(m, TreeKind::TypeConcrete);
+}
+
+fn type_var(p: &mut Parser) {
+    let m = p.open();
+    p.expect(TokenKind::LowerIdent);
+    if p.at(TokenKind::LSquare) {
+        type_qual(p);
+    }
+    p.close(m, TreeKind::TypeVar);
+}
+
+fn type_expr(p: &mut Parser) {
+    let m = p.open();
+    if p.at(TokenKind::UpperIdent) {
+        type_concrete(p);
+    } else if p.at(TokenKind::LowerIdent) {
+        type_var(p);
+    } else if p.at(TokenKind::LParen) {
+        // func_type_expr or tuple_type_expr
+    } else if p.at(TokenKind::Amp) {
+        type_ref(p);
+    } else if p.at(TokenKind::SelfKw) {
+        // ??
+        p.expect(TokenKind::SelfKw);
+    }
+    p.close(m, TreeKind::TypeExpr);
+}
+
+fn type_ref(p: &mut Parser) {
+    let m =p.open();
+    p.expect(TokenKind::Amp);
+    type_expr(p);
+    p.close(m, TreeKind::TypeRef);
+}
+
+fn type_name(p: &mut Parser) {
+    let m = p.open();
+    p.expect(TokenKind::UpperIdent);
+    while p.eat(TokenKind::Dot) {
+        p.expect(TokenKind::UpperIdent);
+    }
+    p.close(m, TreeKind::TypeName);
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn space_between_kws() {
+        let src = "breakcontinue";
+        assert_eq!(
+            TokenKind::lexer(src).next().unwrap().unwrap(),
+            TokenKind::LowerIdent
+        );
+
+        let src = "break continue";
+        assert_eq!(
+            TokenKind::lexer(src).next().unwrap().unwrap(),
+            TokenKind::BreakKw
+        );
+    }
+
+    #[test]
+    fn single_tokens() {
+        let tests = [("1", TokenKind::WholeNumber), ("1.1", TokenKind::Number)];
+        for (src, typ) in tests {
+            let mut lexer = TokenKind::lexer(src);
+            let f = lexer.next().unwrap().unwrap();
+            assert_eq!(f, typ);
+        }
+    }
+}
