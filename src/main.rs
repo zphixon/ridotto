@@ -136,38 +136,33 @@ type Atype {
     let tree = parse::parse(_src);
     println!("{:#?}", tree);
 
-    for item in tree.children.iter() {
-        let parse::Child::Tree(item) = item else {
-            break;
-        };
-        match item.kind {
-            parse::TreeKind::FuncDecl => {
-                println!("cool function named {:?}", parse::FuncDecl::name(item));
-                for param in parse::FuncDecl::params(item) {
-                    let param = parse::FuncParam::param(param);
+    let file = parse::File::from(&tree);
+    //println!("{:#?}", file);
+
+    for item in file.0 {
+        match item {
+            parse::FileContents::FuncDecl(func_decl) => {
+                println!("cool function named {:?}", func_decl.name);
+                for param in func_decl.params {
                     println!(
                         "  with argument {:?} of type {:?}",
-                        parse::TypeAnnotated::name(param),
-                        parse::TypeAnnotated::ty(param)
+                        param.0.name, param.0.ty
                     );
                 }
             }
-
-            parse::TreeKind::TypeDecl => {
-                let inner = parse::TypeDecl::inner(item);
-
-                println!("cool type named {:?}", parse::TypeDeclInner::name(inner));
-                let fields = parse::TypeDeclInner::fields(inner);
-                for field in parse::TypeDeclFieldList::fields(fields) {
-                    println!(
-                        "  with field {:?} of type {:?}",
-                        parse::TypeAnnotated::name(field),
-                        parse::TypeAnnotated::ty(field)
-                    );
+            parse::FileContents::TypeDecl(type_decl) => {
+                println!("cool type named {:?}", type_decl.0.name);
+                match type_decl.0.fields {
+                    parse::TypeDeclInnerFields::TypeDeclFieldList(type_decl_field_list) => {
+                        for field in type_decl_field_list.0 {
+                            println!("  with field {:?} of type {:?}", field.name, field.ty);
+                        }
+                    }
+                    parse::TypeDeclInnerFields::TypeDeclAlias(type_decl_alias) => {
+                        println!("  alias equal to {:?}", type_decl_alias.0);
+                    }
                 }
             }
-
-            _ => {}
         }
     }
 }

@@ -23,6 +23,7 @@ pub enum TokenKind {
     #[token("->")] Arrow,
     #[token("&")] Amp,
     #[token("&&")] DoubleAmp,
+    #[token("&=")] AmpEqual,
     #[token(".")] Dot,
     #[token("..")] DoubleDot,
     #[token(",")] Comma,
@@ -31,22 +32,30 @@ pub enum TokenKind {
     #[token(":")] Colon,
     #[token(";")] Semicolon,
     #[token("+")] Plus,
+    #[token("+=")] PlusEqual,
     #[token("!")] Exclam,
     #[token("!=")] ExclamEqual,
     #[token("~")] Tilde,
+    #[token("~=")] TildeEqual,
     #[token("@")] At,
     #[token("^")] Caret,
+    #[token("^=")] CaretEqual,
     #[token("*")] Star,
+    #[token("*=")] StarEqual,
     #[token("/")] Slash,
+    #[token("/=")] SlashEqual,
     #[token("%")] Percent,
+    #[token("%=")] PercentEqual,
     #[token("<")] LAngle,
     #[token("<<")] DoubleLAngle,
     #[token("<=")] LessEqual,
-    #[token("<>")] NotEqual,
+    #[token("<>")] Diamond,
+    #[token("<=>")] Spaceship,
     #[token(">")] RAngle,
     #[token(">>")] DoubleRAngle,
     #[token(">=")] GreaterEqual,
     #[token("|")] Pipe,
+    #[token("|=")] PipeEqual,
     #[token("||")] DoublePipe,
     #[token("_")] Underscore,
     #[token("class")] ClassKw,
@@ -230,63 +239,76 @@ impl<'src> From<Option<Token<'src>>> for Token<'src> {
     }
 }
 
-#[derive(PartialEq, Debug, macros::ParseTree)]
+#[derive(PartialEq, Debug, macros::Ast)]
 pub enum TreeKind {
     Error,
 
-    #[tree(contents = trees(FuncDecl, TypeDecl))]
+    /// struct File {
+    ///     contents: Vec<FileContents>
+    /// }
+    /// enum FileContents {
+    ///     FuncDecl(FuncDecl),
+    ///     TypeDecl(TypeDecl),
+    /// }
+    #[ast(contents = trees(FuncDecl, TypeDecl))]
     File,
 
     Doc,
 
-    #[tree(name = token(LowerIdent), ty = tree(TypeExpr))]
+    /// struct TypeAnnotated {
+    ///     name: LowerIdent,
+    ///     ty: TypeExpr,
+    /// }
+    #[ast(name = token(LowerIdent), ty = tree(TypeExpr))]
     TypeAnnotated,
 
-    #[tree(expr = tree(TypeRef, TypeConcrete, TypeVar, TypeName))]
+    #[ast(expr = tree(TypeRef, TypeConcrete, TypeVar, TypeName))]
     TypeExpr,
 
-    #[tree(expr = tree(TypeExpr))]
+    #[ast(expr = tree(TypeExpr))]
     TypeRef,
 
-    #[tree(name = tree(TypeName))]
+    #[ast(name = tree(TypeName))]
     TypeConcrete,
 
-    #[tree(name = token(LowerIdent))]
+    #[ast(name = token(LowerIdent))]
     TypeVar,
 
-    #[tree(name = tokens(UpperIdent))]
+    // struct TypeName(Vec<UpperIdent>)
+    #[ast(name = tokens(UpperIdent))]
     TypeName,
 
-    #[tree(list = trees(TypeExpr))]
+    #[ast(list = trees(TypeExpr))]
     TypeQualifierList,
     FuncType,
     FuncTypeArgList,
     FuncTypeArg,
 
-    #[tree(inner = tree(TypeDeclInner))]
+    #[ast(inner = tree(TypeDeclInner))]
     TypeDecl,
 
-    #[tree(
+    #[ast(
         name = token(UpperIdent),
-        fields = tree(TypeDeclFieldList),
+        fields = tree(TypeDeclFieldList, TypeDeclAlias),
         methods = trees(FuncDecl),
         variants = trees(TypeDeclInner),
     )]
     TypeDeclInner,
 
+    #[ast(expr = tree(TypeExpr))]
     TypeDeclAlias,
 
-    #[tree(fields = trees(TypeAnnotated))]
+    #[ast(fields = trees(TypeAnnotated))]
     TypeDeclFieldList,
 
     TypeDeclVariant,
     TypeDeclWhereList,
     TypeDeclWhere,
 
-    #[tree(name = token(LowerIdent), params = trees(FuncParam))]
+    #[ast(name = token(LowerIdent), params = trees(FuncParam))]
     FuncDecl,
 
-    #[tree(param = tree(TypeAnnotated))]
+    #[ast(param = tree(TypeAnnotated))]
     FuncParam,
 
     ClassDecl,
@@ -357,6 +379,30 @@ pub fn parse(src: &str) -> Tree<'_> {
 pub enum Child<'src> {
     Token(Token<'src>),
     Tree(Tree<'src>),
+}
+
+impl Child<'_> {
+    pub fn is_token(&self) -> bool {
+        matches!(self, Child::Token(_))
+    }
+
+    pub fn as_token(&self) -> Token<'_> {
+        match self {
+            Child::Token(token) => *token,
+            Child::Tree(tree) => panic!("called as_token on non-token {:?}", tree.kind),
+        }
+    }
+
+    pub fn is_tree(&self) -> bool {
+        matches!(self, Child::Tree(_))
+    }
+
+    pub fn as_tree(&self) -> &Tree<'_> {
+        match self {
+            Child::Tree(tree) => tree,
+            Child::Token(token) => panic!("called as_tree on non-tree {:?}", token),
+        }
+    }
 }
 
 enum Event {
@@ -518,9 +564,7 @@ fn type_decl_inner(p: &mut Parser) {
     }
 
     if p.eat(TokenKind::LCurly) {
-        if p.at(TokenKind::LowerIdent) {
-            type_decl_fields(p);
-        }
+        type_decl_fields(p);
 
         while p.at(TokenKind::UpperIdent) {
             type_decl_inner(p);
