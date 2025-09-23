@@ -230,33 +230,63 @@ impl<'src> From<Option<Token<'src>>> for Token<'src> {
     }
 }
 
-#[derive(Debug)]
+#[derive(PartialEq, Debug, macros::ParseTree)]
 pub enum TreeKind {
     Error,
+
+    #[tree(contents = trees(FuncDecl, TypeDecl))]
     File,
 
     Doc,
 
+    #[tree(name = token(LowerIdent), ty = tree(TypeExpr))]
     TypeAnnotated,
+
+    #[tree(expr = tree(TypeRef, TypeConcrete, TypeVar, TypeName))]
     TypeExpr,
+
+    #[tree(expr = tree(TypeExpr))]
     TypeRef,
+
+    #[tree(name = tree(TypeName))]
     TypeConcrete,
+
+    #[tree(name = token(LowerIdent))]
     TypeVar,
+
+    #[tree(name = tokens(UpperIdent))]
     TypeName,
+
+    #[tree(list = trees(TypeExpr))]
     TypeQualifierList,
     FuncType,
     FuncTypeArgList,
     FuncTypeArg,
 
+    #[tree(inner = tree(TypeDeclInner))]
     TypeDecl,
+
+    #[tree(
+        name = token(UpperIdent),
+        fields = tree(TypeDeclFieldList),
+        methods = trees(FuncDecl),
+        variants = trees(TypeDeclInner),
+    )]
     TypeDeclInner,
+
     TypeDeclAlias,
+
+    #[tree(fields = trees(TypeAnnotated))]
     TypeDeclFieldList,
+
     TypeDeclVariant,
     TypeDeclWhereList,
     TypeDeclWhere,
 
+    #[tree(name = token(LowerIdent), params = trees(FuncParam))]
     FuncDecl,
+
+    #[tree(param = tree(TypeAnnotated))]
     FuncParam,
 
     ClassDecl,
@@ -271,6 +301,7 @@ pub struct Tree<'src> {
 impl Debug for Tree<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let mut dbg = f.debug_tuple(&format!("{:?}", self.kind));
+
         for child in self.children.iter() {
             match child {
                 Child::Token(token) => {
@@ -281,6 +312,7 @@ impl Debug for Tree<'_> {
                 }
             }
         }
+
         dbg.finish()
     }
 }
@@ -527,7 +559,7 @@ fn func_decl(p: &mut Parser) {
         if p.at(TokenKind::LowerIdent) {
             func_param(p);
         } else {
-            break
+            break;
         }
     }
     p.expect(TokenKind::RParen);
@@ -619,7 +651,7 @@ fn type_expr(p: &mut Parser) {
 }
 
 fn type_ref(p: &mut Parser) {
-    let m =p.open();
+    let m = p.open();
     p.expect(TokenKind::Amp);
     type_expr(p);
     p.close(m, TreeKind::TypeRef);

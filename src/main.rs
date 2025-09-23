@@ -8,10 +8,12 @@ fn main() {
 
     let _src = r#"
 type Atype {
+    bungus: Tungus
+    lungus: HUEhu
     Michael {
         x: Int
     }
-    Tomlinson,
+    Tomlinson = Fungus,
 }
 #
 # woweeeeeee
@@ -131,8 +133,41 @@ type Atype {
     //    }
     //}
 
-    println!(
-        "{:#?}",
-        parse::parse(_src),
-    );
+    let tree = parse::parse(_src);
+    println!("{:#?}", tree);
+
+    for item in tree.children.iter() {
+        let parse::Child::Tree(item) = item else {
+            break;
+        };
+        match item.kind {
+            parse::TreeKind::FuncDecl => {
+                println!("cool function named {:?}", parse::FuncDecl::name(item));
+                for param in parse::FuncDecl::params(item) {
+                    let param = parse::FuncParam::param(param);
+                    println!(
+                        "  with argument {:?} of type {:?}",
+                        parse::TypeAnnotated::name(param),
+                        parse::TypeAnnotated::ty(param)
+                    );
+                }
+            }
+
+            parse::TreeKind::TypeDecl => {
+                let inner = parse::TypeDecl::inner(item);
+
+                println!("cool type named {:?}", parse::TypeDeclInner::name(inner));
+                let fields = parse::TypeDeclInner::fields(inner);
+                for field in parse::TypeDeclFieldList::fields(fields) {
+                    println!(
+                        "  with field {:?} of type {:?}",
+                        parse::TypeAnnotated::name(field),
+                        parse::TypeAnnotated::ty(field)
+                    );
+                }
+            }
+
+            _ => {}
+        }
+    }
 }
