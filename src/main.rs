@@ -8,12 +8,13 @@ fn main() {
 
     let _src = r#"
 type Atype {
-    bungus: Tungus
+    bungus: A,
     lungus: HUEhu
     Michael {
         x: Int
     }
     Tomlinson = Fungus,
+    func bingle() {}
 }
 #
 # woweeeeeee
@@ -39,6 +40,8 @@ func main(args: List[String], env: Map[String, String]) {
 #        }
 #    }
 #    #let x = Z { .. a, b }
+    let x = "jiofewaoji"
+    print(-x)
 }
 #func main(){
 #    a * 3 - 4
@@ -136,33 +139,43 @@ type Atype {
     let tree = parse::parse(_src);
     println!("{:#?}", tree);
 
-    let file = parse::File::from(&tree);
-    //println!("{:#?}", file);
+    let file = parse::File::from_tree(&tree);
+    println!("{:#?}", file);
 
-    for item in file.0 {
+    for item in file.contents {
         match item {
             parse::FileContents::FuncDecl(func_decl) => {
                 println!("cool function named {:?}", func_decl.name);
                 for param in func_decl.params {
                     println!(
                         "  with argument {:?} of type {:?}",
-                        param.0.name, param.0.ty
+                        param.param.name, param.param.ty
                     );
                 }
             }
-            parse::FileContents::TypeDecl(type_decl) => {
-                println!("cool type named {:?}", type_decl.0.name);
-                match type_decl.0.fields {
-                    parse::TypeDeclInnerFields::TypeDeclFieldList(type_decl_field_list) => {
-                        for field in type_decl_field_list.0 {
-                            println!("  with field {:?} of type {:?}", field.name, field.ty);
-                        }
+            parse::FileContents::TypeDecl(type_decl) => match type_decl.inner_alias {
+                parse::TypeDeclInnerAlias::TypeDeclInner(type_decl_inner) => {
+                    println!("cool type named {:?}", type_decl.def);
+                    for field in type_decl_inner.fields {
+                        println!("  with field {:?} of type {:?}", field.name, field.ty);
                     }
-                    parse::TypeDeclInnerFields::TypeDeclAlias(type_decl_alias) => {
-                        println!("  alias equal to {:?}", type_decl_alias.0);
+                    for variant in type_decl_inner.variants {
+                        println!(
+                            "  with cool variant {:?} which is {:?}",
+                            variant.def, variant.inner_alias
+                        );
+                    }
+                    for method in type_decl_inner.methods {
+                        println!("  with method {:?}", method.name);
                     }
                 }
-            }
+                parse::TypeDeclInnerAlias::TypeDeclAlias(type_decl_alias) => {
+                    println!(
+                        "cool type alias named {:?} equal to {:?}",
+                        type_decl.def, type_decl_alias.expr
+                    )
+                }
+            },
         }
     }
 }
