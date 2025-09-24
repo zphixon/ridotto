@@ -4,21 +4,40 @@ use quote::ToTokens;
 use syn::{parenthesized, parse::Parse, parse_macro_input, punctuated::Punctuated, Ident, Token};
 
 #[derive(Debug, Clone, Copy)]
+enum Number {
+    NoneOrOne,  // ?
+    OneExactly, //
+    OneOrMore,  // +
+    NoneOrMore, // *
+}
+
+#[derive(Debug, Clone, Copy)]
 enum AstAttrFieldKind {
-    Token,
-    Tokens,
-    Tree,
-    Trees,
+    Token(Number),
+    Tree(Number),
 }
 
 impl Parse for AstAttrFieldKind {
     fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
         let kind: Ident = input.parse()?;
+
+        let peek = input.lookahead1();
+        let number = if peek.peek(Token![?]) {
+            let _: Token![?] = input.parse()?;
+            Number::NoneOrOne
+        } else if peek.peek(Token![+]) {
+            let _: Token![+] = input.parse()?;
+            Number::OneOrMore
+        } else if peek.peek(Token![*]) {
+            let _: Token![*] = input.parse()?;
+            Number::NoneOrMore
+        } else {
+            Number::OneExactly
+        };
+
         match kind.to_string().as_str() {
-            "token" => Ok(AstAttrFieldKind::Token),
-            "tokens" => Ok(AstAttrFieldKind::Tokens),
-            "tree" => Ok(AstAttrFieldKind::Tree),
-            "trees" => Ok(AstAttrFieldKind::Trees),
+            "token" => Ok(AstAttrFieldKind::Token(number)),
+            "tree" => Ok(AstAttrFieldKind::Tree(number)),
             _ => Err(input.error("Expected one of token/tokens/tree/trees")),
         }
     }
@@ -167,15 +186,22 @@ pub fn ast_derive(item: TokenStream) -> TokenStream {
                 };
 
             field_decls.push(match field.kind {
-                AstAttrFieldKind::Token => quote::quote! { #name: Token<'s> },
-                AstAttrFieldKind::Tokens => quote::quote! { #name: Vec<Token<'s>> },
-                AstAttrFieldKind::Tree => quote::quote! { #name: #tree_type<'s> },
-                AstAttrFieldKind::Trees => quote::quote! { #name: Vec<#tree_type<'s>> },
+                AstAttrFieldKind::Token(Number::NoneOrOne) => {
+                    quote::quote! { #name: Option<Token<'s>> }
+                }
+                AstAttrFieldKind::Token(Number::OneExactly) => quote::quote! { #name: Token<'s> },
+                AstAttrFieldKind::Token(_) => quote::quote! { #name: Vec<Token<'s>> },
+
+                AstAttrFieldKind::Tree(Number::NoneOrOne) => {
+                    quote::quote! { #name: Option<#tree_type<'s>> }
+                }
+                AstAttrFieldKind::Tree(Number::OneExactly) => {
+                    quote::quote! { #name: #tree_type<'s> }
+                }
+                AstAttrFieldKind::Tree(_) => quote::quote! { #name: Vec<#tree_type<'s>> },
             });
 
-            if field.options.len() > 1
-                && matches!(field.kind, AstAttrFieldKind::Tree | AstAttrFieldKind::Trees)
-            {
+            if field.options.len() > 1 && matches!(field.kind, AstAttrFieldKind::Tree(_)) {
                 let mut new_enum_variant_names = field
                     .options
                     .clone()
@@ -243,7 +269,7 @@ pub fn ast_derive(item: TokenStream) -> TokenStream {
             }
 
             field_ctors.push(match field.kind {
-                AstAttrFieldKind::Token => quote::quote! {
+                AstAttrFieldKind::Token(Number::NoneOrOne) => quote::quote! {
                     #name: tree
                         .children
                         .iter()
@@ -251,11 +277,42 @@ pub fn ast_derive(item: TokenStream) -> TokenStream {
                             child.is_token()
                             && [#(TokenKind::#tree_token_kinds,)*].contains(&child.as_token().kind)
                         })
-                        .expect(concat!("missing item for ", stringify!(#name), " of ", stringify!(#variant)))
+                        .map(|child| child.as_token())
+                },
+
+                AstAttrFieldKind::Token(Number::OneExactly) => quote::quote! {
+                    #name: tree
+                        .children
+                        .iter()
+                        .find(|child| {
+                            child.is_token()
+                            && [#(TokenKind::#tree_token_kinds,)*].contains(&child.as_token().kind)
+                        })
+                        .unwrap_or_else(|| {
+                            panic!(concat!("could not construct ", stringify!(#name), " of ", stringify!(#variant), " {:?}"), tree);
+                        })
                         .as_token()
                 },
 
-                AstAttrFieldKind::Tokens => quote::quote! {
+                AstAttrFieldKind::Token(Number::OneOrMore) => quote::quote! {
+                    #name: {
+                        let tokens = tree
+                            .children
+                            .iter()
+                            .filter(|child| {
+                                child.is_token()
+                                && [#(TokenKind::#tree_token_kinds,)*].contains(&child.as_token().kind)
+                            })
+                            .map(|child| child.as_token())
+                            .collect::<Vec<_>>();
+                        if tokens.is_empty() {
+                            panic!("missing item for {} of {} {:?}", stringify!(#name), stringify!(#variant), tree);
+                        }
+                        tokens
+                    }
+                },
+
+                AstAttrFieldKind::Token(Number::NoneOrMore) => quote::quote! {
                     #name: tree
                         .children
                         .iter()
@@ -267,7 +324,18 @@ pub fn ast_derive(item: TokenStream) -> TokenStream {
                         .collect()
                 },
 
-                AstAttrFieldKind::Tree => quote::quote! {
+                AstAttrFieldKind::Tree(Number::NoneOrOne) => quote::quote! {
+                    #name: tree
+                        .children
+                        .iter()
+                        .find(|child| {
+                            child.is_tree()
+                            && [#(TreeKind::#tree_token_kinds,)*].contains(&child.as_tree().kind)
+                        })
+                        .map(|child| #tree_type::<'s>::from_tree(child.as_tree()))
+                },
+
+                AstAttrFieldKind::Tree(Number::OneExactly) => quote::quote! {
                     #name: #tree_type::<'s>::from_tree(tree
                         .children
                         .iter()
@@ -281,7 +349,25 @@ pub fn ast_derive(item: TokenStream) -> TokenStream {
                         .as_tree())
                 },
 
-                AstAttrFieldKind::Trees => quote::quote! {
+                AstAttrFieldKind::Tree(Number::OneOrMore) => quote::quote! {
+                    #name: {
+                        let trees = tree
+                            .children
+                            .iter()
+                            .filter(|child| {
+                                child.is_tree()
+                                && [#(TreeKind::#tree_token_kinds,)*].contains(&child.as_tree().kind)
+                            })
+                            .map(|child| #tree_type::<'s>::from_tree(child.as_tree()))
+                            .collect::<Vec<_>>();
+                        if trees.is_empty() {
+                            panic!("missing item for {} of {} {:?}", stringify!(#name), stringify!(#variant), tree);
+                        }
+                        trees
+                    }
+                },
+
+                AstAttrFieldKind::Tree(Number::NoneOrMore) => quote::quote! {
                     #name: tree
                         .children
                         .iter()

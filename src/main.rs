@@ -43,9 +43,9 @@ func main(args: List[String], env: Map[String, String]) {
     let x = "jiofewaoji"
     print(-x)
 }
-#func main(){
-#    a * 3 - 4
-#}
+func main(){
+    a * 3 - 4
+}
 "#;
 
     //let src = std::fs::read_to_string(std::env::args().nth(1).unwrap_or("sample.ridotto".into()))
@@ -72,7 +72,7 @@ func main(args: List[String], env: Map[String, String]) {
 #    }
 #    
 type Atype {
-    y: bob.frob[i.do.not.like.green.eggs._and.ham]
+    y: Bob.Frob[I.Do.Not.Like.Green.Eggs.And.Ham]
     Michael {
         x: Int
         JJJJJJjjj
@@ -90,51 +90,30 @@ type Atype {
     }
 }
 
-#    func asdf(x: int, b: y) -> Asdf.Bsdf[Csdf, Dsdf,] {
-#        #let a = 3
-#        #let b = 0.0e0
-#
-#        #let c = 3 - (a.e)[b]
-#        #let c = 3 -  a.e [b]
-#
-#        #let c = 3 -  (3+4)[b]  * !e
-#        #let c = 3 - ((3+4)[b]) * !e
-#        #2 + 3
-#
-#        #let c = -  a[b]
-#        #let c = - (a[b])
-#        #let c = (-a)[b]
-#        #let a = b + true
-#        #let a = 3
-#    }
+func main() {
+    let x = "fungus"
+    print(x.upper(), 3, x.upper()[3])
+}
+
+    func asdf(x: int, b: y) -> Asdf.Bsdf[Csdf, Dsdf,] {
+        let a = 3
+        let b = 0.0e0
+
+        let c = 3 - (a.e)[b]
+        let c = 3 -  a.e [b]
+
+        let c = 3 -  (3+4)[b]  * !e
+        let c = 3 - ((3+4)[b]) * !e
+        2 + 3
+
+        let c = -  a[b]
+        let c = - (a[b])
+        let c = (-a)[b]
+        let a = b + true
+        let a = 3
+    }
     
     "#;
-
-    let _x = 0.3e0;
-
-    //let ts = parse::lex(src);
-    //for token in ts {
-    //    //println!("{:?}", token);
-    //}
-
-    //let mut bruh = parse::Token::lexer(src);
-    //loop {
-    //    let token = bruh.next();
-    //    if token == parse::Token::Comment {
-    //        continue;
-    //    }
-
-    //    println!(
-    //        "{:?} {:?} {:?}",
-    //        parse::span_to_line_col(src, bruh.span()),
-    //        bruh.slice(),
-    //        token
-    //    );
-
-    //    if token == parse::Token::Eof {
-    //        break;
-    //    }
-    //}
 
     let tree = parse::parse(_src);
     println!("{:#?}", tree);
@@ -154,26 +133,29 @@ type Atype {
                 }
             }
             parse::FileContents::TypeDecl(type_decl) => match type_decl.inner_alias {
-                parse::TypeDeclInnerAlias::TypeDeclInner(type_decl_inner) => {
+                Some(parse::TypeDeclInnerAlias::TypeDeclInner(type_decl_inner)) => {
                     println!("cool type named {:?}", type_decl.def);
-                    for field in type_decl_inner.fields {
+                    for field in type_decl_inner.fields.iter() {
                         println!("  with field {:?} of type {:?}", field.name, field.ty);
                     }
-                    for variant in type_decl_inner.variants {
+                    for variant in type_decl_inner.variants.iter() {
                         println!(
                             "  with cool variant {:?} which is {:?}",
                             variant.def, variant.inner_alias
                         );
                     }
-                    for method in type_decl_inner.methods {
+                    for method in type_decl_inner.methods.iter() {
                         println!("  with method {:?}", method.name);
                     }
                 }
-                parse::TypeDeclInnerAlias::TypeDeclAlias(type_decl_alias) => {
+                Some(parse::TypeDeclInnerAlias::TypeDeclAlias(type_decl_alias)) => {
                     println!(
                         "cool type alias named {:?} equal to {:?}",
                         type_decl.def, type_decl_alias.expr
                     )
+                }
+                None => {
+                    println!("idk what you are");
                 }
             },
         }

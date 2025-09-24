@@ -190,11 +190,20 @@ pub mod tree {
     use super::*;
 
     #[derive(PartialEq, Debug, macros::Ast)]
-    #[ast(Paren, Literal, Variable, Binary, Unary, Call)]
+    #[ast(
+        Paren,
+        Literal,
+        Variable,
+        Binary,
+        Unary,
+        Call,
+        FieldAccess,
+        ArrayAccess
+    )]
     pub enum TreeKind {
         Error,
 
-        #[ast(contents = trees(FuncDecl, TypeDecl))]
+        #[ast(contents = tree*(FuncDecl, TypeDecl))]
         File,
 
         Doc,
@@ -208,39 +217,38 @@ pub mod tree {
         #[ast(expr = tree(TypeExpr))]
         TypeRef,
 
-        #[ast(name = tree(TypeName), qual = trees(TypeQualifierList))]
+        #[ast(name = tree(TypeName), qual = tree?(TypeQualifierList))]
         TypeConcrete,
 
         #[ast(name = token(LowerIdent))]
         TypeVar,
 
         // struct TypeName(Vec<UpperIdent>)
-        #[ast(name = tokens(UpperIdent))]
+        #[ast(name = token+(UpperIdent))]
         TypeName,
 
-        #[ast(list = trees(TypeExpr))]
+        #[ast(list = tree+(TypeExpr))]
         TypeQualifierList,
-        FuncType,
-        FuncTypeArg,
 
-        #[ast(def = tree(TypeConcrete), inner_alias = tree(TypeDeclInner, TypeDeclAlias))]
+        FuncType,
+
+        #[ast(def = tree(TypeConcrete, TypeName), inner_alias = tree?(TypeDeclInner, TypeDeclAlias))]
         TypeDecl,
 
         #[ast(
-            fields = trees(TypeAnnotated),
-            methods = trees(FuncDecl),
-            variants = trees(TypeDecl),
+            fields = tree*(TypeAnnotated),
+            methods = tree*(FuncDecl),
+            variants = tree*(TypeDecl),
         )]
         TypeDeclInner,
 
         #[ast(expr = tree(TypeExpr))]
         TypeDeclAlias,
 
-        TypeDeclVariant,
         TypeDeclWhereList,
         TypeDeclWhere,
 
-        #[ast(name = token(LowerIdent), qual = trees(TypeQualifierList), params = trees(FuncParam), body = trees(Statement))]
+        #[ast(name = token(LowerIdent), qual = tree?(TypeQualifierList), params = tree*(FuncParam), body = tree*(Statement))]
         FuncDecl,
 
         #[ast(inner = tree($, Binding))]
@@ -252,19 +260,28 @@ pub mod tree {
         #[ast(value = token(LowerIdent))]
         Variable,
 
+        #[ast(path = token+(LowerIdent))]
+        FieldAccess,
+
+        #[ast(from = tree($), access = tree(ArrayList))]
+        ArrayAccess,
+
+        #[ast(values = tree+($))]
+        ArrayList,
+
         #[ast(callee = tree($), params = tree(ArgList))]
         Call,
 
-        #[ast(values = trees($))]
+        #[ast(values = tree*($))]
         ArgList,
 
         #[ast(
             op = token(
                 Star, Slash, Percent, Plus, Minus, Caret, Amp, Pipe, DoubleLAngle,
                 DoubleRAngle, LAngle, RAngle, LessEqual, GreaterEqual, DoubleEqual,
-                ExclamEqual, Diamond, Spaceship, InKw,
+                ExclamEqual, Diamond, Spaceship, InKw, AndKw, DoubleAmp, OrKw, DoublePipe,
             ),
-            sides = trees($)
+            sides = tree+($)
         )]
         Binary,
 
@@ -529,7 +546,7 @@ fn file(p: &mut Parser) {
     let mark = p.open();
     while !p.eof() {
         if p.eat(TokenKind::TypeKw) {
-            type_decl(p);
+            type_decl(p, true);
         } else if p.at(TokenKind::FuncKw) || p.at_any(FUNC_MODIFIERS) {
             func_decl(p);
         } else {
@@ -539,16 +556,23 @@ fn file(p: &mut Parser) {
     p.close(mark, TreeKind::File);
 }
 
-fn type_decl(p: &mut Parser) {
+fn type_decl(p: &mut Parser, top: bool) {
     let m = p.open();
-    type_concrete(p);
+
+    if top {
+        type_concrete(p);
+    } else {
+        type_name(p);
+    }
+
     if p.eat(TokenKind::Equal) {
         let m = p.open();
         type_expr(p);
         p.close(m, TreeKind::TypeDeclAlias);
-    } else {
+    } else if p.at(TokenKind::LCurly) {
         type_decl_inner(p);
     }
+
     p.close(m, TreeKind::TypeDecl);
 }
 
@@ -563,7 +587,7 @@ fn type_decl_inner(p: &mut Parser) {
     }
 
     while p.at(TokenKind::UpperIdent) {
-        type_decl(p);
+        type_decl(p, false);
         p.eat(TokenKind::Comma);
     }
 
@@ -645,7 +669,7 @@ fn expr(p: &mut Parser) {
 fn expr_rec(p: &mut Parser, left: TokenKind) {
     let mut lhs = expr_delimited(p);
 
-    while p.at_any(&[TokenKind::LParen, TokenKind::Dot]) {
+    while p.at_any(&[TokenKind::LParen, TokenKind::LSquare]) {
         let what = p.nth(0);
         let m = p.open_before(lhs);
 
@@ -655,8 +679,9 @@ fn expr_rec(p: &mut Parser, left: TokenKind) {
                 lhs = p.close(m, TreeKind::Call);
             }
 
-            TokenKind::Dot => {
-                // something hmmm
+            TokenKind::LSquare => {
+                array_list(p);
+                lhs = p.close(m, TreeKind::ArrayAccess);
             }
 
             _ => {}
@@ -696,7 +721,6 @@ fn right_binds_tighter(left: TokenKind, right: TokenKind) -> bool {
             &[Caret, Amp, Pipe, DoubleLAngle, DoubleRAngle],
             &[Plus, Minus],
             &[Star, Slash, Percent],
-            // etc
         ]
         .iter()
         .position(|level| level.contains(&kind))
@@ -725,15 +749,23 @@ fn expr_delimited(p: &mut Parser) -> MarkClosed {
 
         LowerIdent => {
             p.advance();
-            // dot access hmmmmmmmm
-            p.close(m, TreeKind::Variable)
+            let mut dot_access = false;
+            while p.eat(TokenKind::Dot) {
+                dot_access = true;
+                p.expect(TokenKind::LowerIdent);
+            }
+            if dot_access {
+                p.close(m, TreeKind::FieldAccess)
+            } else {
+                p.close(m, TreeKind::Variable)
+            }
         }
 
         LParen => {
             p.expect(LParen);
             expr(p);
             p.expect(RParen);
-            p.close(m, TreeKind::Pattern)
+            p.close(m, TreeKind::Paren)
         }
 
         Minus | Plus | Exclam | Amp | Tilde | At | Caret | AwaitKw | YieldKw => {
@@ -756,9 +788,29 @@ fn arg_list(p: &mut Parser) {
     p.expect(TokenKind::LParen);
     while !p.eof() && !p.at(TokenKind::RParen) {
         expr(p);
+        if !p.at(TokenKind::RParen) {
+            p.expect(TokenKind::Comma);
+        } else {
+            p.eat(TokenKind::Comma);
+        }
     }
     p.expect(TokenKind::RParen);
     p.close(m, TreeKind::ArgList);
+}
+
+fn array_list(p: &mut Parser) {
+    let m = p.open();
+    p.expect(TokenKind::LSquare);
+    while !p.eof() && !p.at(TokenKind::RSquare) {
+        expr(p);
+        if !p.at(TokenKind::RSquare) {
+            p.expect(TokenKind::Comma);
+        } else {
+            p.eat(TokenKind::Comma);
+        }
+    }
+    p.expect(TokenKind::RSquare);
+    p.close(m, TreeKind::ArrayList);
 }
 
 fn func_param(p: &mut Parser) {
@@ -808,9 +860,6 @@ fn type_concrete(p: &mut Parser) {
 fn type_var(p: &mut Parser) {
     let m = p.open();
     p.expect(TokenKind::LowerIdent);
-    if p.at(TokenKind::LSquare) {
-        type_qual(p);
-    }
     p.close(m, TreeKind::TypeVar);
 }
 
