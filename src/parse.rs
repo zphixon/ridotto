@@ -82,6 +82,7 @@ pub enum TokenKind {
     #[token("return")] ReturnKw,
     #[token("continue")] ContinueKw,
     #[token("self")] SelfKw,
+    #[token("Self")] UpperSelfKw,
 
     #[token("true")] TrueKw,
     #[token("false")] FalseKw,
@@ -212,8 +213,11 @@ pub mod tree {
         #[ast(name = token(LowerIdent), ty = tree(TypeExpr))]
         TypeAnnotated,
 
-        #[ast(expr = tree(TypeRef, TypeConcrete, TypeVar, TypeName))]
+        #[ast(expr = tree(TypeRef, TypeConcrete, TypeVar, TypeName, TypeTuple, TypeFunc, TypeSelf))]
         TypeExpr,
+
+        #[ast(kw = token(UpperSelfKw))]
+        TypeSelf,
 
         #[ast(expr = tree(TypeExpr))]
         TypeRef,
@@ -228,10 +232,11 @@ pub mod tree {
         #[ast(name = token+(UpperIdent))]
         TypeName,
 
+        #[ast(members = tree*(TypeExpr))]
+        TypeTuple,
+
         #[ast(list = tree+(TypeExpr))]
         TypeParamList,
-
-        FuncType,
 
         #[ast(
             name = tree(TypeName),
@@ -254,9 +259,19 @@ pub mod tree {
         TypeDeclWhere,
 
         #[ast(
+            params = tree(TypeFuncParamList),
+            ret = tree?(TypeExpr),
+        )]
+        TypeFunc,
+
+        #[ast(params = tree*(TypeExpr))]
+        TypeFuncParamList,
+
+        #[ast(
+            modifiers = token*(AsyncKw, ConstKw, ExportKw, BuiltinKw, StaticKw),
             name = token(LowerIdent),
             type_params = tree?(TypeParamList),
-            params = tree*(FuncParam),
+            params = tree*(SelfParam, TypeAnnotated),
             ret = tree?(TypeExpr),
             body = tree*(Statement),
         )]
@@ -271,7 +286,7 @@ pub mod tree {
         #[ast(value = token(LowerIdent))]
         Variable,
 
-        #[ast(path = token+(LowerIdent))]
+        #[ast(from = tree($), field = token(LowerIdent, WholeNumber))]
         FieldAccess,
 
         #[ast(from = tree($), access = tree(ArrayList))]
@@ -309,8 +324,8 @@ pub mod tree {
         #[ast(inner = token(LowerIdent))]
         Pattern,
 
-        #[ast(param = tree(TypeAnnotated))]
-        FuncParam,
+        #[ast(token = token(SelfKw))]
+        SelfParam,
 
         ClassDecl,
         ImplDecl,
@@ -634,20 +649,15 @@ fn func_decl(p: &mut Parser) {
     }
 
     p.expect(TokenKind::LParen);
-    const PARAM_LIST_RECOVERY: &[TokenKind] = &[
-        TokenKind::Arrow,
-        TokenKind::LCurly,
-        TokenKind::FuncKw,
-        TokenKind::TypeKw,
-    ];
     while !p.eof() && !p.at(TokenKind::RParen) {
-        if p.at(TokenKind::LowerIdent) {
-            func_param(p);
+        if p.at(TokenKind::SelfKw) {
+            self_param(p);
         } else {
-            if p.at_any(PARAM_LIST_RECOVERY) {
-                break;
-            }
-            p.advance_error("expected parameter");
+            type_annotated(p);
+        }
+
+        if !p.at(TokenKind::RParen) {
+            p.expect(TokenKind::Comma);
         }
     }
     p.expect(TokenKind::RParen);
@@ -702,7 +712,7 @@ fn expr_rec(p: &mut Parser, left: TokenKind) {
     let mut lhs = expr_delimited(p);
     trace!("expr_rec {lhs:?} {:?}", p.nth(0));
 
-    while p.at_any(&[TokenKind::LParen, TokenKind::LSquare]) {
+    while p.at_any(&[TokenKind::LParen, TokenKind::LSquare, TokenKind::Dot]) {
         let what = p.nth(0);
         let m = p.open_before(lhs);
 
@@ -715,6 +725,14 @@ fn expr_rec(p: &mut Parser, left: TokenKind) {
             TokenKind::LSquare => {
                 array_list(p);
                 lhs = p.close(m, TreeKind::ArrayAccess);
+            }
+
+            TokenKind::Dot => {
+                p.expect(TokenKind::Dot);
+                if !p.eat(TokenKind::LowerIdent) || !p.eat(TokenKind::WholeNumber) {
+                    // huh
+                }
+                lhs = p.close(m, TreeKind::FieldAccess);
             }
 
             _ => {}
@@ -783,16 +801,7 @@ fn expr_delimited(p: &mut Parser) -> MarkClosed {
 
         LowerIdent => {
             p.advance();
-            let mut dot_access = false;
-            while p.eat(TokenKind::Dot) {
-                dot_access = true;
-                p.expect(TokenKind::LowerIdent);
-            }
-            if dot_access {
-                p.close(m, TreeKind::FieldAccess)
-            } else {
-                p.close(m, TreeKind::Variable)
-            }
+            p.close(m, TreeKind::Variable)
         }
 
         LParen => {
@@ -849,16 +858,10 @@ fn array_list(p: &mut Parser) {
     p.close(m, TreeKind::ArrayList);
 }
 
-fn func_param(p: &mut Parser) {
+fn self_param(p: &mut Parser) {
     let m = p.open();
-    trace!("func_param {m:?} {:?}", p.nth(0));
-    type_annotated(p);
-
-    if !p.at(TokenKind::RParen) {
-        p.expect(TokenKind::Comma);
-    }
-
-    p.close(m, TreeKind::FuncParam);
+    p.expect(TokenKind::SelfKw);
+    p.close(m, TreeKind::SelfParam);
 }
 
 fn type_annotated(p: &mut Parser) {
@@ -875,13 +878,14 @@ fn type_param_list(p: &mut Parser) {
     trace!("type_param_list {m:?} {:?}", p.nth(0));
 
     p.expect(TokenKind::LSquare);
-
     type_expr(p);
-    while p.eat(TokenKind::Comma) {
+    while !p.at(TokenKind::RSquare) && !p.eof() {
+        if !p.eat(TokenKind::Comma) {
+            break;
+        }
         type_expr(p);
     }
     p.eat(TokenKind::Comma);
-
     p.expect(TokenKind::RSquare);
 
     p.close(m, TreeKind::TypeParamList);
@@ -912,16 +916,56 @@ fn type_expr(p: &mut Parser) {
     } else if p.at(TokenKind::LowerIdent) {
         type_var(p);
     } else if p.at(TokenKind::LParen) {
-        // func_type_expr or tuple_type_expr
+        type_tuple(p);
+    } else if p.at(TokenKind::FuncKw) {
+        type_func(p);
     } else if p.at(TokenKind::Amp) {
         type_ref(p);
-    } else if p.at(TokenKind::SelfKw) {
-        // ??
-        p.expect(TokenKind::SelfKw);
+    } else if p.at(TokenKind::UpperSelfKw) {
+        let m2 = p.open();
+        p.expect(TokenKind::UpperSelfKw);
+        p.close(m2, TreeKind::TypeSelf);
     } else {
         p.advance_error("expected type expression");
     }
     p.close(m, TreeKind::TypeExpr);
+}
+
+fn type_func(p: &mut Parser) {
+    let m = p.open();
+    p.expect(TokenKind::FuncKw);
+
+    let m2 = p.open();
+    p.expect(TokenKind::LParen);
+    while !p.eof() && !p.at(TokenKind::RParen) {
+        if p.at(TokenKind::LowerIdent) {
+            type_expr(p);
+        } else {
+            break;
+        }
+    }
+    p.expect(TokenKind::RParen);
+    p.close(m2, TreeKind::TypeFuncParamList);
+
+    p.expect(TokenKind::Arrow);
+
+    type_expr(p);
+
+    p.close(m, TreeKind::TypeFunc);
+}
+
+fn type_tuple(p: &mut Parser) {
+    let m = p.open();
+    p.expect(TokenKind::LParen);
+    while !p.eof() && !p.at(TokenKind::RParen) {
+        type_expr(p);
+        if !p.at(TokenKind::RParen) {
+            p.expect(TokenKind::Comma);
+        }
+    }
+    p.eat(TokenKind::Comma);
+    p.expect(TokenKind::RParen);
+    p.close(m, TreeKind::TypeTuple);
 }
 
 fn type_ref(p: &mut Parser) {

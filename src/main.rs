@@ -5,9 +5,14 @@ fn main() {
     tracing_subscriber::fmt::init();
 
     let _src = r#"
-func f1(x: Int32,
-func f2(x: Int32, , z: Int32) {}
-func f3() {}
+type Map[t, u] {
+    iter: Iterator[t]
+    xform: func(t) -> u
+}
+
+func dunc(self, whowee: True) {
+    Wungle.gungle()
+}
 "#;
 
     let tree = parse::parse(_src);
@@ -22,10 +27,7 @@ func f3() {}
             parse::FileContents::FuncDecl(func_decl) => {
                 println!("cool function named {:?}", func_decl.name);
                 for param in func_decl.params {
-                    println!(
-                        "  with argument {:?} of type {:?}",
-                        param.param.name, param.param.ty
-                    );
+                    println!("  with param {:?}", param);
                 }
             }
             parse::FileContents::TypeDecl(type_decl) => match type_decl.inner_alias {
