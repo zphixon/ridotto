@@ -158,7 +158,7 @@ pub fn ast_derive(item: TokenStream) -> TokenStream {
             pub fn from_tree<'t: 's>(tree: &'t Tree<'s>) -> Self {
                 match tree.kind {
                     #(TreeKind::#expr_options => Expr::#expr_options(Box::new(#expr_options::from_tree(tree))),)*
-                    _ => panic!("could not construct expr from {:?}", tree),
+                    _ => panic!("$: could not construct expr from {:?}", tree),
                 }
             }
         }
@@ -289,7 +289,7 @@ pub fn ast_derive(item: TokenStream) -> TokenStream {
                             && [#(TokenKind::#tree_token_kinds,)*].contains(&child.as_token().kind)
                         })
                         .unwrap_or_else(|| {
-                            panic!(concat!("could not construct ", stringify!(#name), " of ", stringify!(#variant), " {:?}"), tree);
+                            panic!(concat!("token: could not construct ", stringify!(#name), " of ", stringify!(#variant), " {:?}"), tree);
                         })
                         .as_token()
                 },
@@ -306,7 +306,7 @@ pub fn ast_derive(item: TokenStream) -> TokenStream {
                             .map(|child| child.as_token())
                             .collect::<Vec<_>>();
                         if tokens.is_empty() {
-                            panic!("missing item for {} of {} {:?}", stringify!(#name), stringify!(#variant), tree);
+                            panic!("token+: missing item for {} of {} {:?}", stringify!(#name), stringify!(#variant), tree);
                         }
                         tokens
                     }
@@ -344,7 +344,7 @@ pub fn ast_derive(item: TokenStream) -> TokenStream {
                             && [#(TreeKind::#tree_token_kinds,)*].contains(&child.as_tree().kind)
                         })
                         .unwrap_or_else(|| {
-                            panic!(concat!("could not construct ", stringify!(#name), " of ", stringify!(#variant), " {:?}"), tree);
+                            panic!(concat!("tree: could not construct ", stringify!(#name), " of ", stringify!(#variant), " {:?}"), tree);
                         })
                         .as_tree())
                 },
@@ -361,7 +361,7 @@ pub fn ast_derive(item: TokenStream) -> TokenStream {
                             .map(|child| #tree_type::<'s>::from_tree(child.as_tree()))
                             .collect::<Vec<_>>();
                         if trees.is_empty() {
-                            panic!("missing item for {} of {} {:?}", stringify!(#name), stringify!(#variant), tree);
+                            panic!("tree+: missing item for {} of {} {:?}", stringify!(#name), stringify!(#variant), tree);
                         }
                         trees
                     }

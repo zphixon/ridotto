@@ -6,6 +6,7 @@ use std::{
     fmt::Debug,
     ops::{Bound, RangeBounds},
 };
+use tracing::trace;
 
 #[rustfmt::skip]
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Logos)]
@@ -217,7 +218,7 @@ pub mod tree {
         #[ast(expr = tree(TypeExpr))]
         TypeRef,
 
-        #[ast(name = tree(TypeName), qual = tree?(TypeQualifierList))]
+        #[ast(name = tree(TypeName), params = tree?(TypeParamList))]
         TypeConcrete,
 
         #[ast(name = token(LowerIdent))]
@@ -228,11 +229,15 @@ pub mod tree {
         TypeName,
 
         #[ast(list = tree+(TypeExpr))]
-        TypeQualifierList,
+        TypeParamList,
 
         FuncType,
 
-        #[ast(def = tree(TypeConcrete, TypeName), inner_alias = tree?(TypeDeclInner, TypeDeclAlias))]
+        #[ast(
+            name = tree(TypeName),
+            params = tree?(TypeParamList),
+            inner_alias = tree?(TypeDeclInner, TypeDeclAlias),
+        )]
         TypeDecl,
 
         #[ast(
@@ -248,7 +253,13 @@ pub mod tree {
         TypeDeclWhereList,
         TypeDeclWhere,
 
-        #[ast(name = token(LowerIdent), qual = tree?(TypeQualifierList), params = tree*(FuncParam), body = tree*(Statement))]
+        #[ast(
+            name = token(LowerIdent),
+            type_params = tree?(TypeParamList),
+            params = tree*(FuncParam),
+            ret = tree?(TypeExpr),
+            body = tree*(Statement),
+        )]
         FuncDecl,
 
         #[ast(inner = tree($, Binding))]
@@ -404,11 +415,12 @@ enum Event {
     Advance,
 }
 
+#[derive(Debug)]
 struct MarkOpened {
     index: usize,
 }
 
-#[derive(Clone, Copy)]
+#[derive(Debug, Clone, Copy)]
 struct MarkClosed {
     index: usize,
 }
@@ -433,12 +445,14 @@ impl<'src> Parser<'src> {
     }
 
     fn close(&mut self, m: MarkOpened, kind: TreeKind) -> MarkClosed {
+        trace!("close {:?} {:?}", m, kind);
         self.events[m.index] = Event::Open { kind };
         self.events.push(Event::Close);
         MarkClosed { index: m.index }
     }
 
     fn open_before(&mut self, m: MarkClosed) -> MarkOpened {
+        trace!("open_before {m:?}");
         let new_m = MarkOpened { index: m.index };
         self.events.insert(
             m.index,
@@ -543,7 +557,9 @@ impl<'src> Parser<'src> {
 }
 
 fn file(p: &mut Parser) {
-    let mark = p.open();
+    let m = p.open();
+    trace!("file {m:?} {:?}", p.nth(0));
+
     while !p.eof() {
         if p.eat(TokenKind::TypeKw) {
             type_decl(p, true);
@@ -553,19 +569,21 @@ fn file(p: &mut Parser) {
             p.advance_error("Expected type declaration");
         }
     }
-    p.close(mark, TreeKind::File);
+
+    p.close(m, TreeKind::File);
 }
 
 fn type_decl(p: &mut Parser, top: bool) {
     let m = p.open();
+    trace!("type_decl {m:?} {:?} top={top}", p.nth(0));
 
-    if top {
-        type_concrete(p);
-    } else {
-        type_name(p);
+    type_name(p);
+    if top && p.at(TokenKind::LSquare) {
+        type_param_list(p);
     }
 
     if p.eat(TokenKind::Equal) {
+        trace!("type_decl alias {m:?} {:?}", p.nth(0));
         let m = p.open();
         type_expr(p);
         p.close(m, TreeKind::TypeDeclAlias);
@@ -578,6 +596,7 @@ fn type_decl(p: &mut Parser, top: bool) {
 
 fn type_decl_inner(p: &mut Parser) {
     let m = p.open();
+    trace!("type_decl_inner {m:?} {:?}", p.nth(0));
 
     p.expect(TokenKind::LCurly);
 
@@ -602,6 +621,7 @@ fn type_decl_inner(p: &mut Parser) {
 
 fn func_decl(p: &mut Parser) {
     let m = p.open();
+    trace!("func_decl {m:?} {:?}", p.nth(0));
 
     while FUNC_MODIFIERS.contains(&p.nth(0).kind) {
         p.advance();
@@ -610,15 +630,24 @@ fn func_decl(p: &mut Parser) {
     p.expect(TokenKind::LowerIdent);
 
     if p.at(TokenKind::LSquare) {
-        type_qual(p);
+        type_param_list(p);
     }
 
     p.expect(TokenKind::LParen);
+    const PARAM_LIST_RECOVERY: &[TokenKind] = &[
+        TokenKind::Arrow,
+        TokenKind::LCurly,
+        TokenKind::FuncKw,
+        TokenKind::TypeKw,
+    ];
     while !p.eof() && !p.at(TokenKind::RParen) {
         if p.at(TokenKind::LowerIdent) {
             func_param(p);
         } else {
-            break;
+            if p.at_any(PARAM_LIST_RECOVERY) {
+                break;
+            }
+            p.advance_error("expected parameter");
         }
     }
     p.expect(TokenKind::RParen);
@@ -638,6 +667,7 @@ fn func_decl(p: &mut Parser) {
 
 fn statement(p: &mut Parser) {
     let m = p.open();
+    trace!("statement {m:?} {:?}", p.nth(0));
 
     if p.eat(TokenKind::LetKw) {
         binding(p);
@@ -650,6 +680,7 @@ fn statement(p: &mut Parser) {
 
 fn binding(p: &mut Parser) {
     let m = p.open();
+    trace!("binding {m:?} {:?}", p.nth(0));
     pattern(p);
     p.expect(TokenKind::Equal);
     expr(p);
@@ -658,6 +689,7 @@ fn binding(p: &mut Parser) {
 
 fn pattern(p: &mut Parser) {
     let m = p.open();
+    trace!("pattern {m:?} {:?}", p.nth(0));
     p.expect(TokenKind::LowerIdent);
     p.close(m, TreeKind::Pattern);
 }
@@ -668,6 +700,7 @@ fn expr(p: &mut Parser) {
 
 fn expr_rec(p: &mut Parser, left: TokenKind) {
     let mut lhs = expr_delimited(p);
+    trace!("expr_rec {lhs:?} {:?}", p.nth(0));
 
     while p.at_any(&[TokenKind::LParen, TokenKind::LSquare]) {
         let what = p.nth(0);
@@ -739,6 +772,7 @@ fn right_binds_tighter(left: TokenKind, right: TokenKind) -> bool {
 
 fn expr_delimited(p: &mut Parser) -> MarkClosed {
     let m = p.open();
+    trace!("expr_delimited {m:?} {:?}", p.nth(0));
 
     use TokenKind::*;
     match p.nth(0).kind {
@@ -785,6 +819,7 @@ fn expr_delimited(p: &mut Parser) -> MarkClosed {
 
 fn arg_list(p: &mut Parser) {
     let m = p.open();
+    trace!("arg_list {m:?} {:?}", p.nth(0));
     p.expect(TokenKind::LParen);
     while !p.eof() && !p.at(TokenKind::RParen) {
         expr(p);
@@ -800,6 +835,7 @@ fn arg_list(p: &mut Parser) {
 
 fn array_list(p: &mut Parser) {
     let m = p.open();
+    trace!("array_list {m:?} {:?}", p.nth(0));
     p.expect(TokenKind::LSquare);
     while !p.eof() && !p.at(TokenKind::RSquare) {
         expr(p);
@@ -815,6 +851,7 @@ fn array_list(p: &mut Parser) {
 
 fn func_param(p: &mut Parser) {
     let m = p.open();
+    trace!("func_param {m:?} {:?}", p.nth(0));
     type_annotated(p);
 
     if !p.at(TokenKind::RParen) {
@@ -826,14 +863,16 @@ fn func_param(p: &mut Parser) {
 
 fn type_annotated(p: &mut Parser) {
     let m = p.open();
+    trace!("type_annotated {m:?} {:?}", p.nth(0));
     p.expect(TokenKind::LowerIdent);
     p.expect(TokenKind::Colon);
     type_expr(p);
     p.close(m, TreeKind::TypeAnnotated);
 }
 
-fn type_qual(p: &mut Parser) {
+fn type_param_list(p: &mut Parser) {
     let m = p.open();
+    trace!("type_param_list {m:?} {:?}", p.nth(0));
 
     p.expect(TokenKind::LSquare);
 
@@ -845,26 +884,29 @@ fn type_qual(p: &mut Parser) {
 
     p.expect(TokenKind::RSquare);
 
-    p.close(m, TreeKind::TypeQualifierList);
+    p.close(m, TreeKind::TypeParamList);
 }
 
 fn type_concrete(p: &mut Parser) {
     let m = p.open();
+    trace!("type_concrete {m:?} {:?}", p.nth(0));
     type_name(p);
     if p.at(TokenKind::LSquare) {
-        type_qual(p);
+        type_param_list(p);
     }
     p.close(m, TreeKind::TypeConcrete);
 }
 
 fn type_var(p: &mut Parser) {
     let m = p.open();
+    trace!("type_var {m:?} {:?}", p.nth(0));
     p.expect(TokenKind::LowerIdent);
     p.close(m, TreeKind::TypeVar);
 }
 
 fn type_expr(p: &mut Parser) {
     let m = p.open();
+    trace!("type_expr {m:?} {:?}", p.nth(0));
     if p.at(TokenKind::UpperIdent) {
         type_concrete(p);
     } else if p.at(TokenKind::LowerIdent) {
@@ -876,12 +918,15 @@ fn type_expr(p: &mut Parser) {
     } else if p.at(TokenKind::SelfKw) {
         // ??
         p.expect(TokenKind::SelfKw);
+    } else {
+        p.advance_error("expected type expression");
     }
     p.close(m, TreeKind::TypeExpr);
 }
 
 fn type_ref(p: &mut Parser) {
     let m = p.open();
+    trace!("type_ref {m:?} {:?}", p.nth(0));
     p.expect(TokenKind::Amp);
     type_expr(p);
     p.close(m, TreeKind::TypeRef);
@@ -889,6 +934,7 @@ fn type_ref(p: &mut Parser) {
 
 fn type_name(p: &mut Parser) {
     let m = p.open();
+    trace!("type_name {m:?} {:?}", p.nth(0));
     p.expect(TokenKind::UpperIdent);
     while p.eat(TokenKind::Dot) {
         p.expect(TokenKind::UpperIdent);
