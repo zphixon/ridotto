@@ -200,7 +200,9 @@ pub mod tree {
         Unary,
         Call,
         FieldAccess,
-        ArrayAccess
+        ArrayAccess,
+        TupleLiteral,
+        ArrayList,
     )]
     pub enum TreeKind {
         Error,
@@ -282,6 +284,9 @@ pub mod tree {
 
         #[ast(value = token(Number, WholeNumber, String, TrueKw, FalseKw))]
         Literal,
+
+        #[ast(values = tree*($))]
+        TupleLiteral,
 
         #[ast(value = token(LowerIdent))]
         Variable,
@@ -807,8 +812,24 @@ fn expr_delimited(p: &mut Parser) -> MarkClosed {
         LParen => {
             p.expect(LParen);
             expr(p);
-            p.expect(RParen);
-            p.close(m, TreeKind::Paren)
+
+            if p.at(Comma) {
+                while p.eat(Comma) {
+                    if p.at(RParen) {
+                        break;
+                    }
+                    expr(p);
+                }
+                p.expect(RParen);
+                p.close(m, TreeKind::TupleLiteral)
+            } else {
+                p.expect(RParen);
+                p.close(m, TreeKind::Paren)
+            }
+        }
+
+        LSquare => {
+            array_list(p)
         }
 
         Minus | Plus | Exclam | Amp | Tilde | At | Caret | AwaitKw | YieldKw => {
@@ -842,7 +863,7 @@ fn arg_list(p: &mut Parser) {
     p.close(m, TreeKind::ArgList);
 }
 
-fn array_list(p: &mut Parser) {
+fn array_list(p: &mut Parser) -> MarkClosed {
     let m = p.open();
     trace!("array_list {m:?} {:?}", p.nth(0));
     p.expect(TokenKind::LSquare);
@@ -855,7 +876,7 @@ fn array_list(p: &mut Parser) {
         }
     }
     p.expect(TokenKind::RSquare);
-    p.close(m, TreeKind::ArrayList);
+    p.close(m, TreeKind::ArrayList)
 }
 
 fn self_param(p: &mut Parser) {
