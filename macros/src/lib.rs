@@ -148,6 +148,14 @@ pub fn ast_derive(item: TokenStream) -> TokenStream {
 
     let mut tys = Vec::new();
 
+    tys.push(quote::quote! {
+        #[derive(Debug)]
+        pub struct FromTreeError<'t, 's> {
+            pub tree: &'t Tree<'s>,
+            pub why: String,
+        }
+    });
+
     let expr_ident = Ident::new("Expr", Span::call_site());
     tys.push(quote::quote! {
         #[derive(Debug)]
@@ -155,10 +163,10 @@ pub fn ast_derive(item: TokenStream) -> TokenStream {
             #(#expr_options(Box<#expr_options<'s>>),)*
         }
         impl<'s> #expr_ident<'s> {
-            pub fn from_tree<'t: 's>(tree: &'t Tree<'s>) -> Self {
+            pub fn from_tree<'t: 's>(tree: &'t Tree<'s>) -> Result<Self, FromTreeError<'t, 's>> {
                 match tree.kind {
-                    #(TreeKind::#expr_options => Expr::#expr_options(Box::new(#expr_options::from_tree(tree))),)*
-                    _ => panic!("$: could not construct expr from {:?}", tree),
+                    #(TreeKind::#expr_options => Ok(Expr::#expr_options(Box::new(#expr_options::from_tree(tree)?))),)*
+                    _ => Err(FromTreeError { tree, why: String::from("$: could not construct expr") }),
                 }
             }
         }
@@ -211,7 +219,7 @@ pub fn ast_derive(item: TokenStream) -> TokenStream {
 
                 let mut new_enum_ctors = new_enum_variant_names.clone().into_iter().map(|variant| {
                     quote::quote! {
-                        TreeKind::#variant => #new_enum::#variant(Box::new(#variant::<'s>::from_tree(tree)))
+                        TreeKind::#variant => Ok(#new_enum::#variant(Box::new(#variant::<'s>::from_tree(tree)?)))
                     }
                 }).collect::<Vec<_>>();
 
@@ -232,7 +240,7 @@ pub fn ast_derive(item: TokenStream) -> TokenStream {
 
                     new_enum_ctors.extend(expr_options.clone().into_iter().map(|expr_option| {
                         quote::quote! {
-                            TreeKind::#expr_option => #new_enum::Expr(#expr_ident::#expr_option(Box::new(#expr_option::<'s>::from_tree(tree))))
+                            TreeKind::#expr_option => Ok(#new_enum::Expr(#expr_ident::#expr_option(Box::new(#expr_option::<'s>::from_tree(tree)?))))
                         }
                     }));
                 }
@@ -243,10 +251,13 @@ pub fn ast_derive(item: TokenStream) -> TokenStream {
                         #(#new_enum_variant_names(#new_enum_variant_decls)),*
                     }
                     impl<'s> #new_enum<'s> {
-                        pub fn from_tree<'t: 's>(tree: &'t Tree) -> #new_enum<'s> {
+                        pub fn from_tree<'t: 's>(tree: &'t Tree) -> Result<#new_enum<'s>, FromTreeError<'t, 's>> {
                             match tree.kind {
                                 #(#new_enum_ctors,)*
-                                _ => unreachable!("couldn't construct {} out of {:?}", stringify!(#new_enum), tree.kind),
+                                _ => Err(FromTreeError {
+                                    tree,
+                                    why: format!("couldn't construct {} out of {:?}", stringify!(#new_enum), tree.kind)
+                                }),
                             }
                         }
                     }
@@ -288,9 +299,10 @@ pub fn ast_derive(item: TokenStream) -> TokenStream {
                             child.is_token()
                             && [#(TokenKind::#tree_token_kinds,)*].contains(&child.as_token().kind)
                         })
-                        .unwrap_or_else(|| {
-                            panic!(concat!("token: could not construct ", stringify!(#name), " of ", stringify!(#variant), " {:?}"), tree);
-                        })
+                        .ok_or_else(|| FromTreeError {
+                            tree,
+                            why: format!(concat!("token: could not construct ", stringify!(#name), " of ", stringify!(#variant), " {:?}"), tree),
+                        })?
                         .as_token()
                 },
 
@@ -306,7 +318,10 @@ pub fn ast_derive(item: TokenStream) -> TokenStream {
                             .map(|child| child.as_token())
                             .collect::<Vec<_>>();
                         if tokens.is_empty() {
-                            panic!("token+: missing item for {} of {} {:?}", stringify!(#name), stringify!(#variant), tree);
+                            return Err(FromTreeError {
+                                tree,
+                                why: format!("token+: missing item for {} of {} {:?}", stringify!(#name), stringify!(#variant), tree),
+                            });
                         }
                         tokens
                     }
@@ -333,6 +348,7 @@ pub fn ast_derive(item: TokenStream) -> TokenStream {
                             && [#(TreeKind::#tree_token_kinds,)*].contains(&child.as_tree().kind)
                         })
                         .map(|child| #tree_type::<'s>::from_tree(child.as_tree()))
+                        .transpose()?
                 },
 
                 AstAttrFieldKind::Tree(Number::OneExactly) => quote::quote! {
@@ -343,10 +359,13 @@ pub fn ast_derive(item: TokenStream) -> TokenStream {
                             child.is_tree()
                             && [#(TreeKind::#tree_token_kinds,)*].contains(&child.as_tree().kind)
                         })
-                        .unwrap_or_else(|| {
-                            panic!(concat!("tree: could not construct ", stringify!(#name), " of ", stringify!(#variant), " {:?}"), tree);
-                        })
-                        .as_tree())
+                        .ok_or_else(||
+                            FromTreeError {
+                                tree,
+                                why: format!(concat!("tree: could not construct ", stringify!(#name), " of ", stringify!(#variant))), 
+                            }
+                        )?
+                        .as_tree())?
                 },
 
                 AstAttrFieldKind::Tree(Number::OneOrMore) => quote::quote! {
@@ -359,9 +378,12 @@ pub fn ast_derive(item: TokenStream) -> TokenStream {
                                 && [#(TreeKind::#tree_token_kinds,)*].contains(&child.as_tree().kind)
                             })
                             .map(|child| #tree_type::<'s>::from_tree(child.as_tree()))
-                            .collect::<Vec<_>>();
+                            .collect::<Result<Vec<_>, _>>()?;
                         if trees.is_empty() {
-                            panic!("tree+: missing item for {} of {} {:?}", stringify!(#name), stringify!(#variant), tree);
+                            return Err(FromTreeError {
+                                tree,
+                                why: format!("tree+: missing item for {} of {} {:?}", stringify!(#name), stringify!(#variant), tree),
+                            });
                         }
                         trees
                     }
@@ -376,7 +398,7 @@ pub fn ast_derive(item: TokenStream) -> TokenStream {
                             && [#(TreeKind::#tree_token_kinds,)*].contains(&child.as_tree().kind)
                         })
                         .map(|child| #tree_type::<'s>::from_tree(child.as_tree()))
-                        .collect()
+                        .collect::<Result<Vec<_>, _>>()?
                 },
             });
         }
@@ -387,10 +409,10 @@ pub fn ast_derive(item: TokenStream) -> TokenStream {
                 #(pub #field_decls,)*
             }
             impl<'s> #variant<'s> {
-                pub fn from_tree<'t: 's>(tree: &'t Tree<'s>) -> Self {
-                    Self {
+                pub fn from_tree<'t: 's>(tree: &'t Tree<'s>) -> Result<Self, FromTreeError<'t, 's>> {
+                    Ok(Self {
                         #(#field_ctors,)*
-                    }
+                    })
                 }
             }
         });

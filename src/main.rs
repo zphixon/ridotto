@@ -15,6 +15,7 @@ func f3() {}
 
     let file = parse::File::from_tree(&tree);
     println!("{:#?}", file);
+    let file = file.unwrap();
 
     for item in file.contents {
         match item {
