@@ -12,3 +12,4 @@ proc-macro2 = "1.0.101"
 quote = "1.0.40"
 stringcase = "0.4.0"
 syn = { version = "2.0.106", features = ["full", "extra-traits"] }
+indexmap = "2.11.4"

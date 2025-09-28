@@ -5,15 +5,25 @@ fn main() {
     tracing_subscriber::fmt::init();
 
     let _src = r#"
-type Map[t, u] {
-    iter: Iterator[t]
-    xform: func(t) -> u
-}
+    func asdf(x: int, b: y) -> Asdf.Bsdf[Csdf, Dsdf,] {
+        let a = 3
+        let b = 0.0e0
 
-func dunc(self, whowee: True) {
-    Wungle.gungle()
-}
-"#;
+        let c = 3 - (a.e)[b]
+        let c = 3 -  a.e [b]
+
+        let c = 3 -  (3+4)[b]  * !e
+        let c = 3 - ((3+4)[b]) * !e
+        2 + 3
+
+        let c = -  a[b]
+        let c = - (a[b])
+        let c = (-a)[b]
+        let a = b + true
+        let a = 3 let
+        (a.e)[b](c)
+    }
+    "#;
 
     let tree = parse::parse(_src);
     println!("{:#?}", tree);
@@ -30,8 +40,8 @@ func dunc(self, whowee: True) {
                     println!("  with param {:?}", param);
                 }
             }
-            parse::FileContents::TypeDecl(type_decl) => match type_decl.inner_alias {
-                Some(parse::TypeDeclInnerAlias::TypeDeclInner(type_decl_inner)) => {
+            parse::FileContents::TypeDecl(type_decl) => match type_decl.def {
+                Some(parse::TypeDeclDef::TypeDeclInner(type_decl_inner)) => {
                     println!("cool type named {:?}", type_decl.name);
                     for field in type_decl_inner.fields.iter() {
                         println!("  with field {:?} of type {:?}", field.name, field.ty);
@@ -39,14 +49,20 @@ func dunc(self, whowee: True) {
                     for variant in type_decl_inner.variants.iter() {
                         println!(
                             "  with cool variant {:?} which is {:?}",
-                            variant.name, variant.inner_alias
+                            variant.name, variant.def
                         );
                     }
                     for method in type_decl_inner.methods.iter() {
                         println!("  with method {:?}", method.name);
                     }
                 }
-                Some(parse::TypeDeclInnerAlias::TypeDeclAlias(type_decl_alias)) => {
+                Some(parse::TypeDeclDef::TypeDeclTupleVariant(tup)) => {
+                    println!("cool tuple type named {:?}", type_decl.name);
+                    for member in tup.members {
+                        println!("  with member {:?}", member)
+                    }
+                }
+                Some(parse::TypeDeclDef::TypeDeclAlias(type_decl_alias)) => {
                     println!(
                         "cool type alias named {:?} equal to {:?}",
                         type_decl.name, type_decl_alias.expr

@@ -1,3 +1,4 @@
+use indexmap::IndexMap;
 use proc_macro::TokenStream;
 use proc_macro2::Span;
 use quote::ToTokens;
@@ -43,37 +44,11 @@ impl Parse for AstAttrFieldKind {
     }
 }
 
-#[derive(Debug, Clone)]
-enum OptionName {
-    Name(Ident),
-    Expr(#[allow(dead_code)] Token![$]),
-}
-
-impl OptionName {
-    fn ident(self) -> Option<Ident> {
-        match self {
-            OptionName::Name(name) => Some(name),
-            OptionName::Expr(_) => None,
-        }
-    }
-}
-
-impl Parse for OptionName {
-    fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
-        let peek = input.lookahead1();
-        if peek.peek(Token![$]) {
-            Ok(OptionName::Expr(input.parse()?))
-        } else {
-            Ok(OptionName::Name(input.parse()?))
-        }
-    }
-}
-
 #[derive(Debug)]
 struct AstAttrField {
     name: Ident,
     kind: AstAttrFieldKind,
-    options: Vec<OptionName>,
+    options: Vec<Ident>,
 }
 
 impl Parse for AstAttrField {
@@ -85,7 +60,7 @@ impl Parse for AstAttrField {
         let content;
         let _paren = parenthesized!(content in input);
         let options = content
-            .parse_terminated(OptionName::parse, Token![,])?
+            .parse_terminated(Ident::parse, Token![,])?
             .into_iter()
             .collect::<Vec<_>>();
 
@@ -116,16 +91,60 @@ impl Parse for AstAttr {
     }
 }
 
+#[derive(Debug)]
+struct Multi {
+    name: Ident,
+    values: Vec<Ident>,
+}
+
+impl Parse for Multi {
+    fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
+        let name = input.parse()?;
+
+        let _eq: Token![=] = input.parse()?;
+
+        let content;
+        let _paren = parenthesized!(content in input);
+        let values = content
+            .parse_terminated(Ident::parse, Token![,])?
+            .into_iter()
+            .collect::<Vec<_>>();
+
+        Ok( Multi { name, values })
+    }
+}
+
+#[derive(Debug)]
+struct MultiAstAttr {
+    multis: Vec<Multi>,
+}
+
+impl Parse for MultiAstAttr {
+    fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
+        Ok(MultiAstAttr {
+            multis: Punctuated::<Multi, Token![,]>::parse_terminated(input)?
+                .into_iter()
+                .collect(),
+        })
+    }
+}
+
 #[proc_macro_derive(Ast, attributes(ast))]
 pub fn ast_derive(item: TokenStream) -> TokenStream {
     let item: syn::ItemEnum = parse_macro_input!(item);
 
-    let mut expr_options: Vec<Ident> = vec![];
+    let mut aliases = IndexMap::<Ident, Vec<Ident>>::new();
     for attr in item.attrs.iter() {
         if attr.path().is_ident("ast") {
-            match attr.parse_args_with(Punctuated::<Ident, Token![,]>::parse_terminated) {
-                Ok(exp) => expr_options.extend(exp.into_iter()),
-                Err(err) => return err.to_compile_error().into_token_stream().into(),
+            match attr.parse_args::<MultiAstAttr>() {
+                Ok(multis) => {
+                    for multi in multis.multis {
+                        aliases.insert(multi.name, multi.values);
+                    }
+                },
+                Err(err) => {
+                    return err.to_compile_error().into_token_stream().into();
+                }
             }
         }
     }
@@ -156,21 +175,22 @@ pub fn ast_derive(item: TokenStream) -> TokenStream {
         }
     });
 
-    let expr_ident = Ident::new("Expr", Span::call_site());
-    tys.push(quote::quote! {
-        #[derive(Debug)]
-        pub enum #expr_ident<'s> {
-            #(#expr_options(Box<#expr_options<'s>>),)*
-        }
-        impl<'s> #expr_ident<'s> {
-            pub fn from_tree<'t: 's>(tree: &'t Tree<'s>) -> Result<Self, FromTreeError<'t, 's>> {
-                match tree.kind {
-                    #(TreeKind::#expr_options => Ok(Expr::#expr_options(Box::new(#expr_options::from_tree(tree)?))),)*
-                    _ => Err(FromTreeError { tree, why: String::from("$: could not construct expr") }),
+    for (name, values) in aliases.iter() {
+        tys.push(quote::quote! {
+            #[derive(Debug)]
+            pub enum #name<'s> {
+                #(#values(Box<#values<'s>>),)*
+            }
+            impl<'s> #name<'s> {
+                pub fn from_tree<'t: 's>(tree: &'t Tree<'s>) -> Result<Self, FromTreeError<'t, 's>> {
+                    match tree.kind {
+                        #(TreeKind::#values => Ok(#name::#values(Box::new(#values::from_tree(tree)?))),)*
+                        _ => Err(FromTreeError { tree, why: String::from("$: could not construct expr") }),
+                    }
                 }
             }
-        }
-    });
+        });
+    }
 
     for (variant, tree) in trees {
         let mut field_decls = Vec::new();
@@ -184,11 +204,12 @@ pub fn ast_derive(item: TokenStream) -> TokenStream {
             let new_enum = Ident::new(&new_name, name.span());
 
             let tree_type =
-                if field.options.len() == 1 && field.options[0].clone().ident().is_some() {
-                    let single_non_expr = field.options[0].clone().ident().unwrap();
+                if field.options.len() == 1 && !aliases.contains_key(&field.options[0].clone()) {
+                    let single_non_expr = field.options[0].clone();
                     quote::quote! { #single_non_expr }
-                } else if field.options.len() == 1 && field.options[0].clone().ident().is_none() {
-                    quote::quote! { #expr_ident }
+                } else if field.options.len() == 1 {
+                    let alias_ident = field.options[0].clone();
+                    quote::quote! { #alias_ident }
                 } else {
                     quote::quote! { #new_enum }
                 };
@@ -214,7 +235,7 @@ pub fn ast_derive(item: TokenStream) -> TokenStream {
                     .options
                     .clone()
                     .into_iter()
-                    .flat_map(OptionName::ident)
+                    .filter(|option| !aliases.contains_key(option))
                     .collect::<Vec<_>>();
 
                 let mut new_enum_ctors = new_enum_variant_names.clone().into_iter().map(|variant| {
@@ -229,18 +250,18 @@ pub fn ast_derive(item: TokenStream) -> TokenStream {
                     .map(|name| quote::quote! { Box<#name<'s>> })
                     .collect::<Vec<_>>();
 
-                if field
+                if let Some(alias_name) = field
                     .options
                     .clone()
                     .into_iter()
-                    .any(|option| option.ident().is_none())
+                    .find(|option| aliases.contains_key(option))
                 {
-                    new_enum_variant_names.push(expr_ident.clone());
-                    new_enum_variant_decls.push(quote::quote! { #expr_ident<'s> });
+                    new_enum_variant_names.push(alias_name.clone());
+                    new_enum_variant_decls.push(quote::quote! { #alias_name<'s> });
 
-                    new_enum_ctors.extend(expr_options.clone().into_iter().map(|expr_option| {
+                    new_enum_ctors.extend(aliases[&alias_name].clone().into_iter().map(|alias_option| {
                         quote::quote! {
-                            TreeKind::#expr_option => Ok(#new_enum::Expr(#expr_ident::#expr_option(Box::new(#expr_option::<'s>::from_tree(tree)?))))
+                            TreeKind::#alias_option => Ok(#new_enum::Expr(#alias_name::#alias_option(Box::new(#alias_option::<'s>::from_tree(tree)?))))
                         }
                     }));
                 }
@@ -268,15 +289,15 @@ pub fn ast_derive(item: TokenStream) -> TokenStream {
                 .options
                 .clone()
                 .into_iter()
-                .flat_map(OptionName::ident)
+                .filter(|option| !aliases.contains_key(option))
                 .collect::<Vec<_>>();
-            if field
+            if let Some(alias_name) = field
                 .options
                 .iter()
                 .cloned()
-                .any(|option| option.ident().is_none())
+                .find(|option| aliases.contains_key(option))
             {
-                tree_token_kinds.extend(expr_options.clone());
+                tree_token_kinds.extend(aliases[&alias_name].clone());
             }
 
             field_ctors.push(match field.kind {

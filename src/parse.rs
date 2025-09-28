@@ -10,7 +10,7 @@ use tracing::trace;
 
 #[rustfmt::skip]
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Logos)]
-#[logos(skip r"\s+")]
+#[logos(skip r"[\t ]+")]
 pub enum TokenKind {
     #[token("[")] LSquare,
     #[token("]")] RSquare,
@@ -94,6 +94,8 @@ pub enum TokenKind {
     #[regex("_?[A-Z][a-zA-Z0-9_]*")] UpperIdent,
     #[regex("_?[a-z][a-zA-Z0-9_]*")] LowerIdent,
 
+    #[regex("\n+")]
+    Newline,
     Error,
     Eof,
 }
@@ -193,16 +195,14 @@ pub mod tree {
 
     #[derive(PartialEq, Debug, macros::Ast)]
     #[ast(
-        Paren,
-        Literal,
-        Variable,
-        Binary,
-        Unary,
-        Call,
-        FieldAccess,
-        ArrayAccess,
-        TupleLiteral,
-        ArrayList,
+        Expr = (
+            Paren, Literal, Variable, Binary, Unary, Call, FieldAccess,
+            ArrayAccess, TupleLiteral, ArrayList, If,
+        ),
+        Pattern = (
+            PatternWildcard, PatternIdent, PatternVariant, PatternAlternate,
+            PatternDestructure, PatternTuple, PatternArray, Literal,
+        ),
     )]
     pub enum TreeKind {
         Error,
@@ -243,7 +243,7 @@ pub mod tree {
         #[ast(
             name = tree(TypeName),
             params = tree?(TypeParamList),
-            inner_alias = tree?(TypeDeclInner, TypeDeclAlias),
+            def = tree?(TypeDeclInner, TypeDeclAlias, TypeDeclTupleVariant),
         )]
         TypeDecl,
 
@@ -256,6 +256,9 @@ pub mod tree {
 
         #[ast(expr = tree(TypeExpr))]
         TypeDeclAlias,
+
+        #[ast(members = tree*(TypeExpr))]
+        TypeDeclTupleVariant,
 
         TypeDeclWhereList,
         TypeDeclWhere,
@@ -275,35 +278,38 @@ pub mod tree {
             type_params = tree?(TypeParamList),
             params = tree*(SelfParam, TypeAnnotated),
             ret = tree?(TypeExpr),
-            body = tree*(Statement),
+            body = tree(Body),
         )]
         FuncDecl,
 
-        #[ast(inner = tree($, Binding))]
+        #[ast(body = tree*(Statement))]
+        Body,
+
+        #[ast(inner = tree(Expr, Binding))]
         Statement,
 
         #[ast(value = token(Number, WholeNumber, String, TrueKw, FalseKw))]
         Literal,
 
-        #[ast(values = tree*($))]
+        #[ast(values = tree*(Expr))]
         TupleLiteral,
 
         #[ast(value = token(LowerIdent))]
         Variable,
 
-        #[ast(from = tree($), field = token(LowerIdent, WholeNumber))]
+        #[ast(from = tree(Expr), field = token(LowerIdent, WholeNumber))]
         FieldAccess,
 
-        #[ast(from = tree($), access = tree(ArrayList))]
+        #[ast(from = tree(Expr), access = tree(ArrayList))]
         ArrayAccess,
 
-        #[ast(values = tree+($))]
+        #[ast(values = tree+(Expr))]
         ArrayList,
 
-        #[ast(callee = tree($), params = tree(ArgList))]
+        #[ast(callee = tree(Expr), params = tree(ArgList))]
         Call,
 
-        #[ast(values = tree*($))]
+        #[ast(values = tree*(Expr))]
         ArgList,
 
         #[ast(
@@ -312,22 +318,51 @@ pub mod tree {
                 DoubleRAngle, LAngle, RAngle, LessEqual, GreaterEqual, DoubleEqual,
                 ExclamEqual, Diamond, Spaceship, InKw, AndKw, DoubleAmp, OrKw, DoublePipe,
             ),
-            sides = tree+($)
+            sides = tree+(Expr)
         )]
         Binary,
 
-        #[ast(inner = tree($))]
+        #[ast(inner = tree(Expr))]
         Paren,
 
-        #[ast(op = token(Minus, Plus, Exclam, Amp, Tilde, At, Caret, AwaitKw, YieldKw), inner = tree($))]
+        #[ast(op = token(Minus, Plus, Exclam, Amp, Tilde, At, Caret, AwaitKw, YieldKw), inner = tree(Expr))]
         Unary,
 
-        #[ast(pat = tree(Pattern), value = tree($))]
+        #[ast(cond = tree(Expr), body = tree(Body), else_if = tree?(If, ElseBody))]
+        If,
+
+        #[ast(body = tree(Body))]
+        ElseBody,
+
+        #[ast(pat = tree(Pattern), value = tree(Expr))]
         Binding,
 
-        // TODO make this tree(...)
-        #[ast(inner = token(LowerIdent))]
-        Pattern,
+        #[ast(token = token(Underscore))]
+        PatternWildcard,
+
+        #[ast(ident = token(LowerIdent))]
+        PatternIdent,
+
+        #[ast(variant = tree(TypeName), members = tree*(Pattern))]
+        PatternVariant,
+
+        #[ast(alt = tree+(Pattern))]
+        PatternAlternate,
+
+        #[ast(name = tree(TypeName), fields = tree+(PatternWildcard, PatternDestructureStructField, PatternDestructureTupleMember))]
+        PatternDestructure,
+
+        #[ast(field = token(LowerIdent), pat = tree?(Pattern))]
+        PatternDestructureStructField,
+
+        #[ast(pat = tree(Pattern))]
+        PatternDestructureTupleMember,
+
+        #[ast(members = tree*(Pattern))]
+        PatternTuple,
+
+        #[ast(members = tree*(Pattern))]
+        PatternArray,
 
         #[ast(token = token(SelfKw))]
         SelfParam,
@@ -391,6 +426,7 @@ pub fn parse(src: &str) -> Tree<'_> {
         tokens,
         src,
         pos: 0,
+        ignore_newline: 0,
         fuel: Cell::new(256),
         events: vec![],
     };
@@ -449,6 +485,7 @@ struct Parser<'src> {
     tokens: Vec<Token<'src>>,
     src: &'src str,
     pos: usize,
+    ignore_newline: u16,
     fuel: Cell<u32>,
     events: Vec<Event>,
 }
@@ -490,16 +527,31 @@ impl<'src> Parser<'src> {
         self.pos += 1;
     }
 
-    fn eof(&self) -> bool {
+    fn eof(&mut self) -> bool {
+        if self.ignore_newline == 0 {
+            while self.pos != self.tokens.len() && self.tokens[self.pos].kind == TokenKind::Newline
+            {
+                self.pos += 1;
+                self.events.push(Event::Advance); // hmmmmmmmmmmmmmmmmmmmmmmmmm
+            }
+        }
         self.pos == self.tokens.len()
     }
 
-    fn nth(&self, lookeahead: usize) -> Token<'src> {
+    fn nth(&mut self, lookahead: usize) -> Token<'src> {
         if self.fuel.get() == 0 {
             panic!("stuck");
         }
+        if self.ignore_newline == 0 {
+            while !self.eof()
+                && (self.pos + lookahead) < self.tokens.len()
+                && self.tokens[self.pos + lookahead].kind == TokenKind::Newline
+            {
+                self.advance();
+            }
+        }
         self.fuel.set(self.fuel.get() - 1);
-        *self.tokens.get(self.pos + lookeahead).unwrap_or(&Token {
+        *self.tokens.get(self.pos + lookahead).unwrap_or(&Token {
             kind: TokenKind::Eof,
             span: Span {
                 start: 0,
@@ -515,7 +567,7 @@ impl<'src> Parser<'src> {
     }
 
     fn at_any<'t>(&mut self, any: impl IntoIterator<Item = &'t TokenKind>) -> bool {
-        any.into_iter().any(|kind| *kind == self.nth(0).kind)
+        any.into_iter().any(|kind| self.at(*kind))
     }
 
     fn eat(&mut self, kind: TokenKind) -> bool {
@@ -609,6 +661,17 @@ fn type_decl(p: &mut Parser, top: bool) {
         p.close(m, TreeKind::TypeDeclAlias);
     } else if p.at(TokenKind::LCurly) {
         type_decl_inner(p);
+    } else if p.eat(TokenKind::LParen) {
+        let m = p.open();
+        while !p.at(TokenKind::RParen) && !p.eof() {
+            type_expr(p);
+            if !p.at(TokenKind::RParen) {
+                p.expect(TokenKind::Comma);
+            }
+        }
+        p.eat(TokenKind::Comma);
+        p.expect(TokenKind::RParen);
+        p.close(m, TreeKind::TypeDeclTupleVariant);
     }
 
     p.close(m, TreeKind::TypeDecl);
@@ -671,13 +734,19 @@ fn func_decl(p: &mut Parser) {
         type_expr(p);
     }
 
+    body(p);
+
+    p.close(m, TreeKind::FuncDecl);
+}
+
+fn body(p: &mut Parser) {
+    let m = p.open();
     p.expect(TokenKind::LCurly);
     while !p.eof() && !p.at(TokenKind::RCurly) {
         statement(p);
     }
     p.expect(TokenKind::RCurly);
-
-    p.close(m, TreeKind::FuncDecl);
+    p.close(m, TreeKind::Body);
 }
 
 fn statement(p: &mut Parser) {
@@ -704,17 +773,107 @@ fn binding(p: &mut Parser) {
 
 fn pattern(p: &mut Parser) {
     let m = p.open();
-    trace!("pattern {m:?} {:?}", p.nth(0));
-    p.expect(TokenKind::LowerIdent);
-    p.close(m, TreeKind::Pattern);
+
+    match p.nth(0).kind {
+        TokenKind::Underscore => {
+            trace!("pattern wildcard {m:?} {:?}", p.nth(0));
+            p.expect(TokenKind::Underscore);
+            p.close(m, TreeKind::PatternWildcard);
+        }
+
+        TokenKind::LowerIdent => {
+            trace!("pattern lowerident {m:?} {:?}", p.nth(0));
+            p.expect(TokenKind::LowerIdent);
+            p.close(m, TreeKind::PatternIdent);
+        }
+
+        TokenKind::LParen => {
+            trace!("pattern tuple {m:?} {:?}", p.nth(0));
+            p.expect(TokenKind::LParen);
+            while !p.at(TokenKind::RParen) && !p.eof() {
+                if p.at(TokenKind::Underscore) {
+                    todo!();
+                }
+            }
+            p.expect(TokenKind::RParen);
+            p.close(m, TreeKind::PatternTuple);
+        }
+
+        TokenKind::UpperIdent => {
+            type_name(p);
+            if p.eat(TokenKind::LCurly) {
+                while !p.at(TokenKind::RCurly) && !p.eof() {
+                    let m = p.open();
+                    trace!("pattern destructure struct {m:?} {:?}", p.nth(0));
+                    if p.at(TokenKind::Underscore) {
+                        let m2 = p.open();
+                        p.advance();
+                        p.close(m2, TreeKind::PatternWildcard);
+                        p.close(m, TreeKind::PatternDestructureStructField);
+                        break;
+                    }
+                    p.expect(TokenKind::LowerIdent);
+                    if p.eat(TokenKind::Colon) {
+                        pattern(p);
+                    }
+                    p.close(m, TreeKind::PatternDestructureStructField);
+                    if !p.at(TokenKind::RCurly) {
+                        p.expect(TokenKind::Comma);
+                    }
+                }
+                p.eat(TokenKind::Comma);
+                p.expect(TokenKind::RCurly);
+                p.close(m, TreeKind::PatternDestructure);
+            } else if p.eat(TokenKind::LParen) {
+                while !p.at(TokenKind::RParen) && !p.eof() {
+                    let m = p.open();
+                    trace!("pattern destructure tuple {m:?} {:?}", p.nth(0));
+                    if p.at(TokenKind::Underscore) {
+                        let m2 = p.open();
+                        p.advance();
+                        p.close(m2, TreeKind::PatternWildcard);
+                        p.close(m, TreeKind::PatternDestructureTupleMember);
+                        break;
+                    }
+                    pattern(p);
+                    p.close(m, TreeKind::PatternDestructureTupleMember);
+                    if !p.at(TokenKind::RParen) {
+                        p.expect(TokenKind::Comma);
+                    }
+                }
+                p.eat(TokenKind::Comma);
+                p.expect(TokenKind::RParen);
+                p.close(m, TreeKind::PatternDestructure);
+            } else {
+                p.close(m, TreeKind::PatternVariant);
+            }
+        }
+
+        TokenKind::TrueKw
+        | TokenKind::FalseKw
+        | TokenKind::Number
+        | TokenKind::WholeNumber
+        | TokenKind::String => {
+            p.advance();
+            p.close(m, TreeKind::Literal);
+        }
+
+        _ => {
+            p.advance_error("expected pattern");
+            p.close(m, TreeKind::Error);
+        }
+    }
 }
 
 fn expr(p: &mut Parser) {
-    expr_rec(p, TokenKind::Eof);
+    p.ignore_newline += 1;
+    expr_rec(p, TokenKind::Newline);
+    p.ignore_newline -= 1;
 }
 
 fn expr_rec(p: &mut Parser, left: TokenKind) {
     let mut lhs = expr_delimited(p);
+    assert!(p.ignore_newline > 0);
     trace!("expr_rec {lhs:?} {:?}", p.nth(0));
 
     while p.at_any(&[TokenKind::LParen, TokenKind::LSquare, TokenKind::Dot]) {
@@ -786,7 +945,7 @@ fn right_binds_tighter(left: TokenKind, right: TokenKind) -> bool {
         return false;
     };
     let Some(left_t) = tightness(left) else {
-        assert_eq!(left, Eof);
+        assert!(matches!(left, Eof | Newline));
         return true;
     };
 
@@ -811,14 +970,14 @@ fn expr_delimited(p: &mut Parser) -> MarkClosed {
 
         LParen => {
             p.expect(LParen);
-            expr(p);
+            expr_rec(p, TokenKind::Newline);
 
             if p.at(Comma) {
                 while p.eat(Comma) {
                     if p.at(RParen) {
                         break;
                     }
-                    expr(p);
+                    expr_rec(p, TokenKind::Newline);
                 }
                 p.expect(RParen);
                 p.close(m, TreeKind::TupleLiteral)
@@ -829,14 +988,27 @@ fn expr_delimited(p: &mut Parser) -> MarkClosed {
         }
 
         LSquare => {
-            array_list(p)
+            // duplicated hmmm
+            p.expect(TokenKind::LSquare);
+            while !p.eof() && !p.at(TokenKind::RSquare) {
+                expr_rec(p, TokenKind::Newline);
+                if !p.at(TokenKind::RSquare) {
+                    p.expect(TokenKind::Comma);
+                } else {
+                    p.eat(TokenKind::Comma);
+                }
+            }
+            p.expect(TokenKind::RSquare);
+            p.close(m, TreeKind::ArrayList)
         }
 
         Minus | Plus | Exclam | Amp | Tilde | At | Caret | AwaitKw | YieldKw => {
             p.advance();
-            expr(p);
+            expr_rec(p, TokenKind::Newline);
             p.close(m, TreeKind::Unary)
         }
+
+        IfKw => if_expr(p, m),
 
         _ => {
             if !p.eof() {
@@ -845,6 +1017,23 @@ fn expr_delimited(p: &mut Parser) -> MarkClosed {
             p.close(m, TreeKind::Error)
         }
     }
+}
+
+fn if_expr(p: &mut Parser, m: MarkOpened) -> MarkClosed {
+    trace!("if_expr {m:?} {:?}", p.nth(0));
+    p.expect(TokenKind::IfKw);
+    expr(p);
+    body(p);
+    if p.eat(TokenKind::ElseKw) {
+        let m = p.open();
+        if p.at(TokenKind::IfKw) {
+            if_expr(p, m);
+        } else {
+            body(p);
+            p.close(m, TreeKind::ElseBody);
+        }
+    }
+    p.close(m, TreeKind::If)
 }
 
 fn arg_list(p: &mut Parser) {
@@ -863,7 +1052,7 @@ fn arg_list(p: &mut Parser) {
     p.close(m, TreeKind::ArgList);
 }
 
-fn array_list(p: &mut Parser) -> MarkClosed {
+fn array_list(p: &mut Parser) {
     let m = p.open();
     trace!("array_list {m:?} {:?}", p.nth(0));
     p.expect(TokenKind::LSquare);
@@ -876,11 +1065,12 @@ fn array_list(p: &mut Parser) -> MarkClosed {
         }
     }
     p.expect(TokenKind::RSquare);
-    p.close(m, TreeKind::ArrayList)
+    p.close(m, TreeKind::ArrayList);
 }
 
 fn self_param(p: &mut Parser) {
     let m = p.open();
+    trace!("self_param {m:?} {:?}", p.nth(0));
     p.expect(TokenKind::SelfKw);
     p.close(m, TreeKind::SelfParam);
 }
@@ -899,12 +1089,11 @@ fn type_param_list(p: &mut Parser) {
     trace!("type_param_list {m:?} {:?}", p.nth(0));
 
     p.expect(TokenKind::LSquare);
-    type_expr(p);
     while !p.at(TokenKind::RSquare) && !p.eof() {
-        if !p.eat(TokenKind::Comma) {
-            break;
-        }
         type_expr(p);
+        if !p.at(TokenKind::RSquare) {
+            p.expect(TokenKind::Comma);
+        }
     }
     p.eat(TokenKind::Comma);
     p.expect(TokenKind::RSquare);
@@ -943,9 +1132,9 @@ fn type_expr(p: &mut Parser) {
     } else if p.at(TokenKind::Amp) {
         type_ref(p);
     } else if p.at(TokenKind::UpperSelfKw) {
-        let m2 = p.open();
+        let m = p.open();
         p.expect(TokenKind::UpperSelfKw);
-        p.close(m2, TreeKind::TypeSelf);
+        p.close(m, TreeKind::TypeSelf);
     } else {
         p.advance_error("expected type expression");
     }
@@ -954,19 +1143,22 @@ fn type_expr(p: &mut Parser) {
 
 fn type_func(p: &mut Parser) {
     let m = p.open();
+    trace!("type_func {m:?} {:?}", p.nth(0));
     p.expect(TokenKind::FuncKw);
 
-    let m2 = p.open();
-    p.expect(TokenKind::LParen);
-    while !p.eof() && !p.at(TokenKind::RParen) {
-        if p.at(TokenKind::LowerIdent) {
-            type_expr(p);
-        } else {
-            break;
+    {
+        let m = p.open();
+        p.expect(TokenKind::LParen);
+        while !p.eof() && !p.at(TokenKind::RParen) {
+            if p.at(TokenKind::LowerIdent) {
+                type_expr(p);
+            } else {
+                break;
+            }
         }
+        p.expect(TokenKind::RParen);
+        p.close(m, TreeKind::TypeFuncParamList);
     }
-    p.expect(TokenKind::RParen);
-    p.close(m2, TreeKind::TypeFuncParamList);
 
     p.expect(TokenKind::Arrow);
 
@@ -977,6 +1169,7 @@ fn type_func(p: &mut Parser) {
 
 fn type_tuple(p: &mut Parser) {
     let m = p.open();
+    trace!("type_tuple {m:?} {:?}", p.nth(0));
     p.expect(TokenKind::LParen);
     while !p.eof() && !p.at(TokenKind::RParen) {
         type_expr(p);
