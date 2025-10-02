@@ -1,8 +1,9 @@
 use indexmap::IndexMap;
 use proc_macro::TokenStream;
-use proc_macro2::Span;
 use quote::ToTokens;
-use syn::{parenthesized, parse::Parse, parse_macro_input, punctuated::Punctuated, Ident, Token};
+use syn::{
+    parenthesized, parse::Parse, parse_macro_input, punctuated::Punctuated, Ident, ItemFn, Token,
+};
 
 #[derive(Debug, Clone, Copy)]
 enum Number {
@@ -110,7 +111,7 @@ impl Parse for Multi {
             .into_iter()
             .collect::<Vec<_>>();
 
-        Ok( Multi { name, values })
+        Ok(Multi { name, values })
     }
 }
 
@@ -141,7 +142,7 @@ pub fn ast_derive(item: TokenStream) -> TokenStream {
                     for multi in multis.multis {
                         aliases.insert(multi.name, multi.values);
                     }
-                },
+                }
                 Err(err) => {
                     return err.to_compile_error().into_token_stream().into();
                 }
@@ -440,4 +441,70 @@ pub fn ast_derive(item: TokenStream) -> TokenStream {
     }
 
     quote::quote! { #(#tys)* }.into_token_stream().into()
+}
+
+#[proc_macro]
+pub fn setup_trace(_: TokenStream) -> TokenStream {
+    quote::quote! {
+        static INDENT: ::std::sync::atomic::AtomicUsize
+            = ::std::sync::atomic::AtomicUsize::new(0);
+    }
+    .into_token_stream()
+    .into()
+}
+
+#[proc_macro_attribute]
+pub fn call_tree(_args: TokenStream, input: TokenStream) -> TokenStream {
+    let mut input: ItemFn = parse_macro_input!(input);
+    let input_name = input.sig.ident.clone();
+    let inner = input.block.clone();
+
+    let Some(parser) = input
+        .sig
+        .inputs
+        .iter()
+        .flat_map(|input| match input {
+            syn::FnArg::Receiver(syn::Receiver { self_token, .. }) => {
+                Some(quote::quote! { #self_token })
+            }
+            syn::FnArg::Typed(pat_type) => match pat_type.pat.as_ref() {
+                syn::Pat::Ident(syn::PatIdent { ident, .. }) if ident.to_string() == "p" => {
+                    Some(quote::quote! { #ident })
+                }
+                _ => None,
+            },
+        })
+        .next()
+    else {
+        return quote::quote! {
+            compile_error!("expected either self: Parser or p: &mut Parser as argument");
+        }
+        .into_token_stream()
+        .into();
+    };
+
+    input.block = Box::new(syn::parse2(quote::quote! {
+        {
+            let level = INDENT.fetch_add(1, ::std::sync::atomic::Ordering::AcqRel);
+            let indent = "  ".repeat(level);
+            trace!("{}{} at={:?}", indent, stringify!(#input_name), #parser.nth(0));
+
+            let mut inner = || {
+                #inner
+            };
+            let result = inner();
+
+            let level = INDENT.fetch_sub(1, ::std::sync::atomic::Ordering::AcqRel);
+            let indent = "  ".repeat(level - 1);
+            trace!("{}{} ret={:?} at={:?}", indent, stringify!(#input_name), result, #parser.nth(0));
+
+            result
+        }
+    }.into_token_stream()).unwrap());
+
+    quote::quote! {
+        #input
+    }
+    .into_token_stream()
+    .into()
 }

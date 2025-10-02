@@ -465,6 +465,7 @@ impl Child<'_> {
     }
 }
 
+#[derive(Debug)]
 enum Event {
     Open { kind: TreeKind },
     Close,
@@ -501,15 +502,15 @@ impl<'src> Parser<'src> {
         mark
     }
 
+    #[macros::call_tree]
     fn close(&mut self, m: MarkOpened, kind: TreeKind) -> MarkClosed {
-        trace!("close {:?} {:?}", m, kind);
         self.events[m.index] = Event::Open { kind };
         self.events.push(Event::Close);
         MarkClosed { index: m.index }
     }
 
+    #[macros::call_tree]
     fn open_before(&mut self, m: MarkClosed) -> MarkOpened {
-        trace!("open_before {m:?}");
         let new_m = MarkOpened { index: m.index };
         self.events.insert(
             m.index,
@@ -520,6 +521,7 @@ impl<'src> Parser<'src> {
         new_m
     }
 
+    #[macros::call_tree]
     fn advance(&mut self) {
         assert!(!self.eof());
         self.fuel.set(256);
@@ -579,6 +581,7 @@ impl<'src> Parser<'src> {
         }
     }
 
+    #[macros::call_tree]
     fn expect(&mut self, kind: TokenKind) {
         if self.eat(kind) {
             return;
@@ -628,9 +631,9 @@ impl<'src> Parser<'src> {
     }
 }
 
+#[macros::call_tree]
 fn file(p: &mut Parser) {
     let m = p.open();
-    trace!("file {m:?} {:?}", p.nth(0));
 
     while !p.eof() {
         if p.eat(TokenKind::TypeKw) {
@@ -645,9 +648,9 @@ fn file(p: &mut Parser) {
     p.close(m, TreeKind::File);
 }
 
+#[macros::call_tree]
 fn type_decl(p: &mut Parser, top: bool) {
     let m = p.open();
-    trace!("type_decl {m:?} {:?} top={top}", p.nth(0));
 
     type_name(p);
     if top && p.at(TokenKind::LSquare) {
@@ -655,7 +658,6 @@ fn type_decl(p: &mut Parser, top: bool) {
     }
 
     if p.eat(TokenKind::Equal) {
-        trace!("type_decl alias {m:?} {:?}", p.nth(0));
         let m = p.open();
         type_expr(p);
         p.close(m, TreeKind::TypeDeclAlias);
@@ -677,9 +679,9 @@ fn type_decl(p: &mut Parser, top: bool) {
     p.close(m, TreeKind::TypeDecl);
 }
 
+#[macros::call_tree]
 fn type_decl_inner(p: &mut Parser) {
     let m = p.open();
-    trace!("type_decl_inner {m:?} {:?}", p.nth(0));
 
     p.expect(TokenKind::LCurly);
 
@@ -702,9 +704,9 @@ fn type_decl_inner(p: &mut Parser) {
     p.close(m, TreeKind::TypeDeclInner);
 }
 
+#[macros::call_tree]
 fn func_decl(p: &mut Parser) {
     let m = p.open();
-    trace!("func_decl {m:?} {:?}", p.nth(0));
 
     while FUNC_MODIFIERS.contains(&p.nth(0).kind) {
         p.advance();
@@ -739,6 +741,7 @@ fn func_decl(p: &mut Parser) {
     p.close(m, TreeKind::FuncDecl);
 }
 
+#[macros::call_tree]
 fn body(p: &mut Parser) {
     let m = p.open();
     p.expect(TokenKind::LCurly);
@@ -749,9 +752,9 @@ fn body(p: &mut Parser) {
     p.close(m, TreeKind::Body);
 }
 
+#[macros::call_tree]
 fn statement(p: &mut Parser) {
     let m = p.open();
-    trace!("statement {m:?} {:?}", p.nth(0));
 
     if p.eat(TokenKind::LetKw) {
         binding(p);
@@ -762,33 +765,31 @@ fn statement(p: &mut Parser) {
     p.close(m, TreeKind::Statement);
 }
 
+#[macros::call_tree]
 fn binding(p: &mut Parser) {
     let m = p.open();
-    trace!("binding {m:?} {:?}", p.nth(0));
     pattern(p);
     p.expect(TokenKind::Equal);
     expr(p);
     p.close(m, TreeKind::Binding);
 }
 
+#[macros::call_tree]
 fn pattern(p: &mut Parser) {
     let m = p.open();
 
     match p.nth(0).kind {
         TokenKind::Underscore => {
-            trace!("pattern wildcard {m:?} {:?}", p.nth(0));
             p.expect(TokenKind::Underscore);
             p.close(m, TreeKind::PatternWildcard);
         }
 
         TokenKind::LowerIdent => {
-            trace!("pattern lowerident {m:?} {:?}", p.nth(0));
             p.expect(TokenKind::LowerIdent);
             p.close(m, TreeKind::PatternIdent);
         }
 
         TokenKind::LParen => {
-            trace!("pattern tuple {m:?} {:?}", p.nth(0));
             p.expect(TokenKind::LParen);
             while !p.at(TokenKind::RParen) && !p.eof() {
                 if p.at(TokenKind::Underscore) {
@@ -804,7 +805,6 @@ fn pattern(p: &mut Parser) {
             if p.eat(TokenKind::LCurly) {
                 while !p.at(TokenKind::RCurly) && !p.eof() {
                     let m = p.open();
-                    trace!("pattern destructure struct {m:?} {:?}", p.nth(0));
                     if p.at(TokenKind::Underscore) {
                         let m2 = p.open();
                         p.advance();
@@ -827,7 +827,6 @@ fn pattern(p: &mut Parser) {
             } else if p.eat(TokenKind::LParen) {
                 while !p.at(TokenKind::RParen) && !p.eof() {
                     let m = p.open();
-                    trace!("pattern destructure tuple {m:?} {:?}", p.nth(0));
                     if p.at(TokenKind::Underscore) {
                         let m2 = p.open();
                         p.advance();
@@ -865,16 +864,17 @@ fn pattern(p: &mut Parser) {
     }
 }
 
+#[macros::call_tree]
 fn expr(p: &mut Parser) {
     p.ignore_newline += 1;
     expr_rec(p, TokenKind::Newline);
     p.ignore_newline -= 1;
 }
 
+#[macros::call_tree]
 fn expr_rec(p: &mut Parser, left: TokenKind) {
     let mut lhs = expr_delimited(p);
     assert!(p.ignore_newline > 0);
-    trace!("expr_rec {lhs:?} {:?}", p.nth(0));
 
     while p.at_any(&[TokenKind::LParen, TokenKind::LSquare, TokenKind::Dot]) {
         let what = p.nth(0);
@@ -952,9 +952,9 @@ fn right_binds_tighter(left: TokenKind, right: TokenKind) -> bool {
     right_t > left_t
 }
 
+#[macros::call_tree]
 fn expr_delimited(p: &mut Parser) -> MarkClosed {
     let m = p.open();
-    trace!("expr_delimited {m:?} {:?}", p.nth(0));
 
     use TokenKind::*;
     match p.nth(0).kind {
@@ -1019,8 +1019,8 @@ fn expr_delimited(p: &mut Parser) -> MarkClosed {
     }
 }
 
+#[macros::call_tree]
 fn if_expr(p: &mut Parser, m: MarkOpened) -> MarkClosed {
-    trace!("if_expr {m:?} {:?}", p.nth(0));
     p.expect(TokenKind::IfKw);
     expr(p);
     body(p);
@@ -1036,9 +1036,9 @@ fn if_expr(p: &mut Parser, m: MarkOpened) -> MarkClosed {
     p.close(m, TreeKind::If)
 }
 
+#[macros::call_tree]
 fn arg_list(p: &mut Parser) {
     let m = p.open();
-    trace!("arg_list {m:?} {:?}", p.nth(0));
     p.expect(TokenKind::LParen);
     while !p.eof() && !p.at(TokenKind::RParen) {
         expr(p);
@@ -1052,9 +1052,9 @@ fn arg_list(p: &mut Parser) {
     p.close(m, TreeKind::ArgList);
 }
 
+#[macros::call_tree]
 fn array_list(p: &mut Parser) {
     let m = p.open();
-    trace!("array_list {m:?} {:?}", p.nth(0));
     p.expect(TokenKind::LSquare);
     while !p.eof() && !p.at(TokenKind::RSquare) {
         expr(p);
@@ -1068,25 +1068,25 @@ fn array_list(p: &mut Parser) {
     p.close(m, TreeKind::ArrayList);
 }
 
+#[macros::call_tree]
 fn self_param(p: &mut Parser) {
     let m = p.open();
-    trace!("self_param {m:?} {:?}", p.nth(0));
     p.expect(TokenKind::SelfKw);
     p.close(m, TreeKind::SelfParam);
 }
 
+#[macros::call_tree]
 fn type_annotated(p: &mut Parser) {
     let m = p.open();
-    trace!("type_annotated {m:?} {:?}", p.nth(0));
     p.expect(TokenKind::LowerIdent);
     p.expect(TokenKind::Colon);
     type_expr(p);
     p.close(m, TreeKind::TypeAnnotated);
 }
 
+#[macros::call_tree]
 fn type_param_list(p: &mut Parser) {
     let m = p.open();
-    trace!("type_param_list {m:?} {:?}", p.nth(0));
 
     p.expect(TokenKind::LSquare);
     while !p.at(TokenKind::RSquare) && !p.eof() {
@@ -1101,9 +1101,9 @@ fn type_param_list(p: &mut Parser) {
     p.close(m, TreeKind::TypeParamList);
 }
 
+#[macros::call_tree]
 fn type_concrete(p: &mut Parser) {
     let m = p.open();
-    trace!("type_concrete {m:?} {:?}", p.nth(0));
     type_name(p);
     if p.at(TokenKind::LSquare) {
         type_param_list(p);
@@ -1111,16 +1111,16 @@ fn type_concrete(p: &mut Parser) {
     p.close(m, TreeKind::TypeConcrete);
 }
 
+#[macros::call_tree]
 fn type_var(p: &mut Parser) {
     let m = p.open();
-    trace!("type_var {m:?} {:?}", p.nth(0));
     p.expect(TokenKind::LowerIdent);
     p.close(m, TreeKind::TypeVar);
 }
 
+#[macros::call_tree]
 fn type_expr(p: &mut Parser) {
     let m = p.open();
-    trace!("type_expr {m:?} {:?}", p.nth(0));
     if p.at(TokenKind::UpperIdent) {
         type_concrete(p);
     } else if p.at(TokenKind::LowerIdent) {
@@ -1141,9 +1141,9 @@ fn type_expr(p: &mut Parser) {
     p.close(m, TreeKind::TypeExpr);
 }
 
+#[macros::call_tree]
 fn type_func(p: &mut Parser) {
     let m = p.open();
-    trace!("type_func {m:?} {:?}", p.nth(0));
     p.expect(TokenKind::FuncKw);
 
     {
@@ -1167,9 +1167,9 @@ fn type_func(p: &mut Parser) {
     p.close(m, TreeKind::TypeFunc);
 }
 
+#[macros::call_tree]
 fn type_tuple(p: &mut Parser) {
     let m = p.open();
-    trace!("type_tuple {m:?} {:?}", p.nth(0));
     p.expect(TokenKind::LParen);
     while !p.eof() && !p.at(TokenKind::RParen) {
         type_expr(p);
@@ -1182,17 +1182,17 @@ fn type_tuple(p: &mut Parser) {
     p.close(m, TreeKind::TypeTuple);
 }
 
+#[macros::call_tree]
 fn type_ref(p: &mut Parser) {
     let m = p.open();
-    trace!("type_ref {m:?} {:?}", p.nth(0));
     p.expect(TokenKind::Amp);
     type_expr(p);
     p.close(m, TreeKind::TypeRef);
 }
 
+#[macros::call_tree]
 fn type_name(p: &mut Parser) {
     let m = p.open();
-    trace!("type_name {m:?} {:?}", p.nth(0));
     p.expect(TokenKind::UpperIdent);
     while p.eat(TokenKind::Dot) {
         p.expect(TokenKind::UpperIdent);
@@ -1229,3 +1229,5 @@ mod test {
         }
     }
 }
+
+macros::setup_trace!();
