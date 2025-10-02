@@ -20,8 +20,8 @@ fn main() {
         let c = - (a[b])
         let c = (-a)[b]
         let a = b + true
-        let a = 3 let
-        (a.e)[b](c)
+        let a = 3
+        let (Bungus { ae }, _) = c[3]
     }
     "#;
 

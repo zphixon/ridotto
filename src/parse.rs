@@ -349,7 +349,7 @@ pub mod tree {
         #[ast(alt = tree+(Pattern))]
         PatternAlternate,
 
-        #[ast(name = tree(TypeName), fields = tree+(PatternWildcard, PatternDestructureStructField, PatternDestructureTupleMember))]
+        #[ast(name = tree(TypeName), fields = tree+(PatternWildcard, PatternDestructureStructField))]
         PatternDestructure,
 
         #[ast(field = token(LowerIdent), pat = tree?(Pattern))]
@@ -782,26 +782,28 @@ fn binding(p: &mut Parser) {
 fn pattern(p: &mut Parser) {
     let m = p.open();
 
-    match p.nth(0).kind {
+    let _: MarkClosed = match p.nth(0).kind {
         TokenKind::Underscore => {
             p.expect(TokenKind::Underscore);
-            p.close(m, TreeKind::PatternWildcard);
+            p.close(m, TreeKind::PatternWildcard)
         }
 
         TokenKind::LowerIdent => {
             p.expect(TokenKind::LowerIdent);
-            p.close(m, TreeKind::PatternIdent);
+            p.close(m, TreeKind::PatternIdent)
         }
 
         TokenKind::LParen => {
             p.expect(TokenKind::LParen);
             while !p.at(TokenKind::RParen) && !p.eof() {
-                if p.at(TokenKind::Underscore) {
-                    todo!();
+                pattern(p);
+                if !p.at(TokenKind::RParen) {
+                    p.expect(TokenKind::Comma);
                 }
             }
+            p.eat(TokenKind::Comma);
             p.expect(TokenKind::RParen);
-            p.close(m, TreeKind::PatternTuple);
+            p.close(m, TreeKind::PatternTuple)
         }
 
         TokenKind::UpperIdent => {
@@ -827,7 +829,7 @@ fn pattern(p: &mut Parser) {
                 }
                 p.eat(TokenKind::Comma);
                 p.expect(TokenKind::RCurly);
-                p.close(m, TreeKind::PatternDestructure);
+                p.close(m, TreeKind::PatternDestructure)
             } else if p.eat(TokenKind::LParen) {
                 while !p.at(TokenKind::RParen) && !p.eof() {
                     let m = p.open();
@@ -846,9 +848,9 @@ fn pattern(p: &mut Parser) {
                 }
                 p.eat(TokenKind::Comma);
                 p.expect(TokenKind::RParen);
-                p.close(m, TreeKind::PatternDestructure);
+                p.close(m, TreeKind::PatternDestructure)
             } else {
-                p.close(m, TreeKind::PatternVariant);
+                p.close(m, TreeKind::PatternVariant)
             }
         }
 
@@ -858,14 +860,14 @@ fn pattern(p: &mut Parser) {
         | TokenKind::WholeNumber
         | TokenKind::String => {
             p.advance();
-            p.close(m, TreeKind::Literal);
+            p.close(m, TreeKind::Literal)
         }
 
         _ => {
             p.advance_error("expected pattern");
-            p.close(m, TreeKind::Error);
+            p.close(m, TreeKind::Error)
         }
-    }
+    };
 }
 
 #[macros::call_tree]
@@ -1010,6 +1012,8 @@ fn expr_delimited(p: &mut Parser) -> MarkClosed {
 
         Minus | Plus | Exclam | Amp | Tilde | At | Caret | AwaitKw | YieldKw => {
             p.advance();
+            // not calling expr(false) here because that would require a
+            // newline. just let our caller handle it
             expr_rec(p, TokenKind::Newline);
             p.close(m, TreeKind::Unary)
         }
