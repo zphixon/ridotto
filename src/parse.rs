@@ -426,7 +426,7 @@ pub fn parse(src: &str) -> Tree<'_> {
         tokens,
         src,
         pos: 0,
-        ignore_newline: 0,
+        ignore_newline: vec![true],
         fuel: Cell::new(256),
         events: vec![],
     };
@@ -486,7 +486,7 @@ struct Parser<'src> {
     tokens: Vec<Token<'src>>,
     src: &'src str,
     pos: usize,
-    ignore_newline: u16,
+    ignore_newline: Vec<bool>,
     fuel: Cell<u32>,
     events: Vec<Event>,
 }
@@ -530,7 +530,7 @@ impl<'src> Parser<'src> {
     }
 
     fn eof(&mut self) -> bool {
-        if self.ignore_newline == 0 {
+        if *self.ignore_newline.last().unwrap() {
             while self.pos != self.tokens.len() && self.tokens[self.pos].kind == TokenKind::Newline
             {
                 self.pos += 1;
@@ -540,19 +540,7 @@ impl<'src> Parser<'src> {
         self.pos == self.tokens.len()
     }
 
-    fn nth(&mut self, lookahead: usize) -> Token<'src> {
-        if self.fuel.get() == 0 {
-            panic!("stuck");
-        }
-        if self.ignore_newline == 0 {
-            while !self.eof()
-                && (self.pos + lookahead) < self.tokens.len()
-                && self.tokens[self.pos + lookahead].kind == TokenKind::Newline
-            {
-                self.advance();
-            }
-        }
-        self.fuel.set(self.fuel.get() - 1);
+    fn nth_exactly(&self, lookahead: usize) -> Token<'src> {
         *self.tokens.get(self.pos + lookahead).unwrap_or(&Token {
             kind: TokenKind::Eof,
             span: Span {
@@ -562,6 +550,22 @@ impl<'src> Parser<'src> {
             lexeme: "",
             src: self.src,
         })
+    }
+
+    fn nth(&mut self, lookahead: usize) -> Token<'src> {
+        if self.fuel.get() == 0 {
+            panic!("stuck");
+        }
+        if *self.ignore_newline.last().unwrap() {
+            while !self.eof()
+                && (self.pos + lookahead) < self.tokens.len()
+                && self.tokens[self.pos + lookahead].kind == TokenKind::Newline
+            {
+                self.advance();
+            }
+        }
+        self.fuel.set(self.fuel.get() - 1);
+        self.nth_exactly(lookahead)
     }
 
     fn at(&mut self, kind: TokenKind) -> bool {
@@ -759,7 +763,7 @@ fn statement(p: &mut Parser) {
     if p.eat(TokenKind::LetKw) {
         binding(p);
     } else {
-        expr(p);
+        expr(p, false);
     }
 
     p.close(m, TreeKind::Statement);
@@ -770,7 +774,7 @@ fn binding(p: &mut Parser) {
     let m = p.open();
     pattern(p);
     p.expect(TokenKind::Equal);
-    expr(p);
+    expr(p, false);
     p.close(m, TreeKind::Binding);
 }
 
@@ -865,16 +869,18 @@ fn pattern(p: &mut Parser) {
 }
 
 #[macros::call_tree]
-fn expr(p: &mut Parser) {
-    p.ignore_newline += 1;
+fn expr(p: &mut Parser, ignore_newline: bool) {
+    p.ignore_newline.push(ignore_newline);
     expr_rec(p, TokenKind::Newline);
-    p.ignore_newline -= 1;
+    if !*p.ignore_newline.last().unwrap() {
+        p.expect(TokenKind::Newline);
+    }
+    p.ignore_newline.pop().unwrap();
 }
 
 #[macros::call_tree]
 fn expr_rec(p: &mut Parser, left: TokenKind) {
     let mut lhs = expr_delimited(p);
-    assert!(p.ignore_newline > 0);
 
     while p.at_any(&[TokenKind::LParen, TokenKind::LSquare, TokenKind::Dot]) {
         let what = p.nth(0);
@@ -970,14 +976,14 @@ fn expr_delimited(p: &mut Parser) -> MarkClosed {
 
         LParen => {
             p.expect(LParen);
-            expr_rec(p, TokenKind::Newline);
+            expr(p, true);
 
             if p.at(Comma) {
                 while p.eat(Comma) {
                     if p.at(RParen) {
                         break;
                     }
-                    expr_rec(p, TokenKind::Newline);
+                    expr(p, true);
                 }
                 p.expect(RParen);
                 p.close(m, TreeKind::TupleLiteral)
@@ -991,7 +997,7 @@ fn expr_delimited(p: &mut Parser) -> MarkClosed {
             // duplicated hmmm
             p.expect(TokenKind::LSquare);
             while !p.eof() && !p.at(TokenKind::RSquare) {
-                expr_rec(p, TokenKind::Newline);
+                expr(p, true);
                 if !p.at(TokenKind::RSquare) {
                     p.expect(TokenKind::Comma);
                 } else {
@@ -1022,7 +1028,7 @@ fn expr_delimited(p: &mut Parser) -> MarkClosed {
 #[macros::call_tree]
 fn if_expr(p: &mut Parser, m: MarkOpened) -> MarkClosed {
     p.expect(TokenKind::IfKw);
-    expr(p);
+    expr(p, true);
     body(p);
     if p.eat(TokenKind::ElseKw) {
         let m = p.open();
@@ -1041,7 +1047,7 @@ fn arg_list(p: &mut Parser) {
     let m = p.open();
     p.expect(TokenKind::LParen);
     while !p.eof() && !p.at(TokenKind::RParen) {
-        expr(p);
+        expr(p, true);
         if !p.at(TokenKind::RParen) {
             p.expect(TokenKind::Comma);
         } else {
@@ -1057,7 +1063,7 @@ fn array_list(p: &mut Parser) {
     let m = p.open();
     p.expect(TokenKind::LSquare);
     while !p.eof() && !p.at(TokenKind::RSquare) {
-        expr(p);
+        expr(p, true);
         if !p.at(TokenKind::RSquare) {
             p.expect(TokenKind::Comma);
         } else {
