@@ -212,6 +212,7 @@ pub mod tree {
         #[ast(contents = tree*(FuncDecl, TypeDecl))]
         File,
 
+        #[ast(text = token+(DocComment))]
         Doc,
 
         #[ast(name = token(LowerIdent), ty = tree(TypeExpr))]
@@ -243,6 +244,7 @@ pub mod tree {
         TypeParamList,
 
         #[ast(
+            doc = tree?(Doc),
             name = tree(TypeName),
             params = tree?(TypeParamList),
             def = tree?(TypeDeclInner, TypeDeclAlias, TypeDeclTupleVariant),
@@ -250,11 +252,14 @@ pub mod tree {
         TypeDecl,
 
         #[ast(
-            fields = tree*(TypeAnnotated),
+            fields = tree*(TypeDeclField),
             methods = tree*(FuncDecl),
             variants = tree*(TypeDecl),
         )]
         TypeDeclInner,
+
+        #[ast(doc = tree?(Doc), field = tree(TypeAnnotated))]
+        TypeDeclField,
 
         #[ast(expr = tree(TypeExpr))]
         TypeDeclAlias,
@@ -275,6 +280,7 @@ pub mod tree {
         TypeFuncParamList,
 
         #[ast(
+            doc = tree?(Doc),
             modifiers = token*(AsyncKw, ConstKw, ExportKw, BuiltinKw, StaticKw),
             name = token(LowerIdent),
             type_params = tree?(TypeParamList),
@@ -618,6 +624,17 @@ impl<'src> Parser<'src> {
         self.close(mark, TreeKind::Error);
     }
 
+    #[macros::call_tree]
+    fn maybe_doc(&mut self) -> Option<MarkClosed> {
+        if self.at(TokenKind::DocComment) {
+            let m = self.open();
+            while self.eat(TokenKind::DocComment) {}
+            Some(self.close(m, TreeKind::Doc))
+        } else {
+            None
+        }
+    }
+
     fn build_tree(self) -> Tree<'src> {
         let mut tokens = self.tokens.into_iter();
         let mut events = self.events;
@@ -658,10 +675,11 @@ fn file(p: &mut Parser) {
     let m = p.open();
 
     while !p.eof() {
+        let doc = p.maybe_doc();
         if p.eat(TokenKind::TypeKw) {
-            type_decl(p, true);
+            type_decl(p, doc, true);
         } else if p.at(TokenKind::FuncKw) || p.at_any(FUNC_MODIFIERS) {
-            func_decl(p);
+            func_decl(p, doc);
         } else {
             p.advance_error("Expected type declaration");
         }
@@ -671,8 +689,12 @@ fn file(p: &mut Parser) {
 }
 
 #[macros::call_tree]
-fn type_decl(p: &mut Parser, top: bool) {
-    let m = p.open();
+fn type_decl(p: &mut Parser, doc: Option<MarkClosed>, top: bool) {
+    let m = if let Some(doc) = doc {
+        p.open_before(doc)
+    } else {
+        p.open()
+    };
 
     type_name(p);
     if top && p.at(TokenKind::LSquare) {
@@ -707,18 +729,27 @@ fn type_decl_inner(p: &mut Parser) {
 
     p.expect(TokenKind::LCurly);
 
+    let mut doc = p.maybe_doc();
     while p.at(TokenKind::LowerIdent) {
+        let m = if let Some(doc) = doc {
+            p.open_before(doc)
+        } else {
+            p.open()
+        };
         type_annotated(p);
+        p.close(m, TreeKind::TypeDeclField);
         p.eat(TokenKind::Comma);
+        doc = p.maybe_doc();
     }
 
     while p.at(TokenKind::UpperIdent) {
-        type_decl(p, false);
+        type_decl(p, doc, false);
         p.eat(TokenKind::Comma);
+        doc = p.maybe_doc();
     }
 
     while p.at_any(FUNC_MODIFIERS) || p.at(TokenKind::FuncKw) {
-        func_decl(p);
+        func_decl(p, doc);
     }
 
     p.expect(TokenKind::RCurly);
@@ -727,8 +758,12 @@ fn type_decl_inner(p: &mut Parser) {
 }
 
 #[macros::call_tree]
-fn func_decl(p: &mut Parser) {
-    let m = p.open();
+fn func_decl(p: &mut Parser, doc: Option<MarkClosed>) {
+    let m = if let Some(doc) = doc {
+        p.open_before(doc)
+    } else {
+        p.open()
+    };
 
     while FUNC_MODIFIERS.contains(&p.nth(0).kind) {
         p.advance();

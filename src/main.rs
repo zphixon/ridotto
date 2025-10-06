@@ -5,14 +5,16 @@ fn main() {
     tracing_subscriber::fmt::init();
 
     let _src = r#"
-    func m() {
-        match self.iter.next() {
-            Some(some) => Some((self.xform)(some)),
-            None => Chungus {
-                bobungus: Tungulus {},
-            }
-        }
-    }
+## hello
+## shit ass
+type Ass {
+    ## funky
+    chunkus: Int
+    ## fungle
+    Wungle
+    ## shit
+    func anus() {}
+}
     "#;
 
     let tree = parse::parse(_src);
@@ -34,7 +36,7 @@ fn main() {
                 Some(parse::TypeDeclDef::TypeDeclInner(type_decl_inner)) => {
                     println!("cool type named {:?}", type_decl.name);
                     for field in type_decl_inner.fields.iter() {
-                        println!("  with field {:?} of type {:?}", field.name, field.ty);
+                        println!("  with field {:?} of type {:?}", field.field.name, field.field.ty);
                     }
                     for variant in type_decl_inner.variants.iter() {
                         println!(
