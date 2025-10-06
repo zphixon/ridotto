@@ -526,7 +526,14 @@ pub fn call_tree(_args: TokenStream, input: TokenStream) -> TokenStream {
 
             let level = INDENT.fetch_sub(1, ::std::sync::atomic::Ordering::AcqRel);
             let indent = "  ".repeat(level - 1);
-            trace!("{}{} {:?} {:?} ret={:?}", indent, stringify!(#input_name), #parser.ignore_newline, #parser.nth_exactly(0), result);
+            trace!(
+                "{}{} {:?} {:?} ret={:?}",
+                indent,
+                stringify!(#input_name),
+                #parser.nth_exactly(0),
+                #parser.ignore_newline,
+                result,
+            );
 
             result
         }

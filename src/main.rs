@@ -5,23 +5,13 @@ fn main() {
     tracing_subscriber::fmt::init();
 
     let _src = r#"
-    func asdf(x: int, b: y) -> Asdf.Bsdf[Csdf, Dsdf,] {
-        let a = 3
-        let b = 0.0e0
-
-        let c = 3 - (a.e)[b]
-        let c = 3 -  a.e [b]
-
-        let c = 3 -  (3+4)[b]  * !e
-        let c = 3 - ((3+4)[b]) * !e
-        2 + 3
-
-        let c = -  a[b]
-        let c = - (a[b])
-        let c = (-a)[b]
-        let a = b + true
-        let a = 3
-        let (Bungus { ae }, _) = c[3]
+    func m() {
+        match self.iter.next() {
+            Some(some) => Some((self.xform)(some)),
+            None => Chungus {
+                bobungus: Tungulus {},
+            }
+        }
     }
     "#;
 

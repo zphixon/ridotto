@@ -20,6 +20,7 @@ pub enum TokenKind {
     #[token("}")] RCurly,
     #[token("-")] Minus,
     #[token("->")] Arrow,
+    #[token("=>")] FatArrow,
     #[token("&")] Amp,
     #[token("&&")] DoubleAmp,
     #[token("&=")] AmpEqual,
@@ -197,7 +198,8 @@ pub mod tree {
     #[ast(
         Expr = (
             Paren, Literal, Variable, Binary, Unary, Call, FieldAccess,
-            ArrayAccess, TupleLiteral, ArrayList, If,
+            ArrayAccess, TupleLiteral, ArrayList, If, Match, SelfParam,
+            Instantiate,
         ),
         Pattern = (
             PatternWildcard, PatternIdent, PatternVariant, PatternAlternate,
@@ -328,8 +330,23 @@ pub mod tree {
         #[ast(op = token(Minus, Plus, Exclam, Amp, Tilde, At, Caret, AwaitKw, YieldKw), inner = tree(Expr))]
         Unary,
 
+        #[ast(name = tree(TypeName), members = tree*(InstantiateField, InstantiateTupleMember))]
+        Instantiate,
+
+        #[ast(name = token(LowerIdent), value = tree(Expr))]
+        InstantiateField,
+
+        #[ast(value = tree(Expr))]
+        InstantiateTupleMember,
+
         #[ast(cond = tree(Expr), body = tree(Body), else_if = tree?(If, ElseBody))]
         If,
+
+        #[ast(scrutinee = tree(Expr), arms = tree*(MatchArm))]
+        Match,
+
+        #[ast(pat = tree(Pattern), body = tree(Body, Expr))]
+        MatchArm,
 
         #[ast(body = tree(Body))]
         ElseBody,
@@ -349,7 +366,7 @@ pub mod tree {
         #[ast(alt = tree+(Pattern))]
         PatternAlternate,
 
-        #[ast(name = tree(TypeName), fields = tree+(PatternWildcard, PatternDestructureStructField))]
+        #[ast(name = tree(TypeName), fields = tree+(PatternWildcard, PatternDestructureStructField, PatternDestructureTupleMember))]
         PatternDestructure,
 
         #[ast(field = token(LowerIdent), pat = tree?(Pattern))]
@@ -976,6 +993,43 @@ fn expr_delimited(p: &mut Parser) -> MarkClosed {
             p.close(m, TreeKind::Variable)
         }
 
+        UpperIdent => {
+            type_name(p);
+
+            if p.eat(LParen) {
+                while !p.at(RParen) && !p.eof() {
+                    let m = p.open();
+                    expr(p, true);
+                    if !p.at(RParen) {
+                        p.expect(Comma);
+                    }
+                    p.close(m, TreeKind::InstantiateTupleMember);
+                }
+                p.eat(Comma);
+                p.expect(RParen);
+            } else if p.eat(LCurly) {
+                while !p.at(RCurly) && !p.eof() {
+                    let m = p.open();
+                    p.expect(LowerIdent);
+                    p.expect(Colon);
+                    expr(p, true);
+                    if !p.at(RCurly) {
+                        p.expect(Comma);
+                    }
+                    p.close(m, TreeKind::InstantiateField);
+                }
+                p.eat(Comma);
+                p.expect(RCurly);
+            }
+
+            p.close(m, TreeKind::Instantiate)
+        }
+
+        SelfKw => {
+            p.advance();
+            p.close(m, TreeKind::SelfParam)
+        }
+
         LParen => {
             p.expect(LParen);
             expr(p, true);
@@ -1020,6 +1074,8 @@ fn expr_delimited(p: &mut Parser) -> MarkClosed {
 
         IfKw => if_expr(p, m),
 
+        MatchKw => match_expr(p, m),
+
         _ => {
             if !p.eof() {
                 p.advance();
@@ -1033,6 +1089,8 @@ fn expr_delimited(p: &mut Parser) -> MarkClosed {
 fn if_expr(p: &mut Parser, m: MarkOpened) -> MarkClosed {
     p.expect(TokenKind::IfKw);
     expr(p, true);
+
+    p.ignore_newline.push(true);
     body(p);
     if p.eat(TokenKind::ElseKw) {
         let m = p.open();
@@ -1043,7 +1101,47 @@ fn if_expr(p: &mut Parser, m: MarkOpened) -> MarkClosed {
             p.close(m, TreeKind::ElseBody);
         }
     }
+    p.ignore_newline.pop().unwrap();
+
     p.close(m, TreeKind::If)
+}
+
+#[macros::call_tree]
+fn match_expr(p: &mut Parser, m: MarkOpened) -> MarkClosed {
+    p.expect(TokenKind::MatchKw);
+    expr(p, true);
+
+    p.ignore_newline.push(true);
+    p.expect(TokenKind::LCurly);
+
+    while !p.at(TokenKind::RCurly) && !p.eof() {
+        match_arm(p);
+        if !p.at(TokenKind::RCurly) {
+            p.expect(TokenKind::Comma);
+        }
+    }
+    p.eat(TokenKind::Comma);
+
+    p.expect(TokenKind::RCurly);
+    p.ignore_newline.pop().unwrap();
+
+    p.close(m, TreeKind::Match)
+}
+
+#[macros::call_tree]
+fn match_arm(p: &mut Parser) {
+    let m = p.open();
+
+    pattern(p);
+    p.expect(TokenKind::FatArrow);
+    if p.at(TokenKind::LCurly) {
+        body(p);
+    } else {
+        // we know to expect a comma (or newline?) above
+        expr(p, true);
+    }
+
+    p.close(m, TreeKind::MatchArm);
 }
 
 #[macros::call_tree]
