@@ -247,6 +247,7 @@ pub mod tree {
             doc = tree?(Doc),
             name = tree(TypeName),
             params = tree?(TypeParamList),
+            qual = tree?(TypeQualifierList),
             def = tree?(TypeDeclInner, TypeDeclAlias, TypeDeclTupleVariant),
         )]
         TypeDecl,
@@ -267,8 +268,11 @@ pub mod tree {
         #[ast(members = tree*(TypeExpr))]
         TypeDeclTupleVariant,
 
-        TypeDeclWhereList,
-        TypeDeclWhere,
+        #[ast(qualifiers = tree+(TypeQualifier))]
+        TypeQualifierList,
+
+        #[ast(name = tree(TypeVar), aspect = tree(TypeExpr))]
+        TypeQualifier,
 
         #[ast(
             params = tree(TypeFuncParamList),
@@ -284,6 +288,7 @@ pub mod tree {
             modifiers = token*(AsyncKw, ConstKw, ExportKw, BuiltinKw, StaticKw),
             name = token(LowerIdent),
             type_params = tree?(TypeParamList),
+            qual = tree?(TypeQualifierList),
             params = tree*(SelfParam, TypeAnnotated),
             ret = tree?(TypeExpr),
             body = tree(Body),
@@ -700,6 +705,9 @@ fn type_decl(p: &mut Parser, doc: Option<MarkClosed>, top: bool) {
     if top && p.at(TokenKind::LSquare) {
         type_param_list(p);
     }
+    if top && p.eat(TokenKind::WhereKw) {
+        type_qual_list(p);
+    }
 
     if p.eat(TokenKind::Equal) {
         let m = p.open();
@@ -793,9 +801,29 @@ fn func_decl(p: &mut Parser, doc: Option<MarkClosed>) {
         type_expr(p);
     }
 
+    if p.eat(TokenKind::WhereKw) {
+        type_qual_list(p);
+    }
+
     body(p);
 
     p.close(m, TreeKind::FuncDecl);
+}
+
+#[macros::call_tree]
+fn type_qual_list(p: &mut Parser) {
+    let m = p.open();
+    while p.at(TokenKind::LowerIdent) {
+        let m = p.open();
+        type_var(p);
+        p.expect(TokenKind::IsKw);
+        type_expr(p);
+        p.close(m, TreeKind::TypeQualifier);
+        if !p.eat(TokenKind::Comma) && !p.at(TokenKind::LowerIdent) {
+            break;
+        }
+    }
+    p.close(m, TreeKind::TypeQualifierList);
 }
 
 #[macros::call_tree]

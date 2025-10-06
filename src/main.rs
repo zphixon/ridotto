@@ -5,15 +5,13 @@ fn main() {
     tracing_subscriber::fmt::init();
 
     let _src = r#"
-## hello
-## shit ass
-type Ass {
-    ## funky
-    chunkus: Int
-    ## fungle
-    Wungle
-    ## shit
-    func anus() {}
+type X[x, t]
+    where
+        x is Monad[t, u]
+        t is Chugnus
+{
+    Z(x)
+    T(t)
 }
     "#;
 
