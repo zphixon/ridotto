@@ -5,13 +5,49 @@ fn main() {
     tracing_subscriber::fmt::init();
 
     let _src = r#"
-type X[x, t]
-    where
-        x is Monad[t, u]
-        t is Chugnus
-{
-    Z(x)
-    T(t)
+func parse_primary(scanner: &Scanner, depth: Usize) -> Result[Expr, Error] {
+    let type_ = scanner.peek_token().type_
+    match type_ {
+        TokenType.LowerIdent => Ok(Expr.Variable {
+            variable: consume_lower(scanner, depth),
+        }),
+
+        TokenType.UpperIdent => Ok(Expr.TypeName {
+            type_: consume_upper(scanner, depth),
+        }),
+
+        TokenType.Int(_)
+        | TokenType.Float(_)
+        | TokenType.True
+        | TokenType.False
+        | TokenType.String => Ok(Expr.Literal {
+            literal: consume(scanner, type_, depth),
+        }),
+
+        TokenType.LeftBrace => {
+            let stmts = parse_brace_delimited_stmts(scanner, depth)
+            Ok(Expr.Block { stmts: stmts })
+        },
+
+        TokenType.LeftParen => {
+            let values = comma_delimited(
+                scanner,
+                depth,
+                TokenType.LeftParen,
+                TokenType.RightParen,
+                parse_expr,
+            )
+            if values.len() == 1 {
+                Ok(Expr.Paren {
+                    expr: Box.new(values.pop().unwrap()),
+                })
+            } else {
+                Ok(Expr.Tuple { values: values })
+            }
+        },
+
+        _ => Err(RidottoError.expected_expression(scanner.peek_token())),
+    }
 }
     "#;
 

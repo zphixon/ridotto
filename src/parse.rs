@@ -622,6 +622,7 @@ impl<'src> Parser<'src> {
         eprintln!("expected {:?}, got {:?}", kind, self.nth(0));
     }
 
+    #[macros::call_tree]
     fn advance_error(&mut self, error: &str) {
         let mark = self.open();
         eprintln!("{error}");
@@ -863,7 +864,7 @@ fn binding(p: &mut Parser) {
 fn pattern(p: &mut Parser) {
     let m = p.open();
 
-    let _: MarkClosed = match p.nth(0).kind {
+    let lhs: MarkClosed = match p.nth(0).kind {
         TokenKind::Underscore => {
             p.expect(TokenKind::Underscore);
             p.close(m, TreeKind::PatternWildcard)
@@ -949,6 +950,15 @@ fn pattern(p: &mut Parser) {
             p.close(m, TreeKind::Error)
         }
     };
+
+    if p.at(TokenKind::Pipe) {
+        let alt = p.open_before(lhs);
+        while p.at(TokenKind::Pipe) {
+            p.expect(TokenKind::Pipe);
+            pattern(p);
+        }
+        p.close(alt, TreeKind::PatternAlternate);
+    }
 }
 
 #[macros::call_tree]
@@ -971,12 +981,16 @@ fn expr_rec(p: &mut Parser, left: TokenKind) {
 
         match what.kind {
             TokenKind::LParen => {
+                p.ignore_newline.push(true);
                 arg_list(p);
+                p.ignore_newline.pop().unwrap();
                 lhs = p.close(m, TreeKind::Call);
             }
 
             TokenKind::LSquare => {
+                p.ignore_newline.push(true);
                 array_list(p);
+                p.ignore_newline.pop().unwrap();
                 lhs = p.close(m, TreeKind::ArrayAccess);
             }
 
@@ -1214,10 +1228,8 @@ fn arg_list(p: &mut Parser) {
     p.expect(TokenKind::LParen);
     while !p.eof() && !p.at(TokenKind::RParen) {
         expr(p, true);
-        if !p.at(TokenKind::RParen) {
-            p.expect(TokenKind::Comma);
-        } else {
-            p.eat(TokenKind::Comma);
+        if !p.eat(TokenKind::Comma) && !p.at(TokenKind::RParen) {
+            break
         }
     }
     p.expect(TokenKind::RParen);
@@ -1366,7 +1378,8 @@ fn type_ref(p: &mut Parser) {
 fn type_name(p: &mut Parser) {
     let m = p.open();
     p.expect(TokenKind::UpperIdent);
-    while p.eat(TokenKind::Dot) {
+    while p.at(TokenKind::Dot) && p.nth(1).kind == TokenKind::UpperIdent {
+        p.expect(TokenKind::Dot);
         p.expect(TokenKind::UpperIdent);
     }
     p.close(m, TreeKind::TypeName);
