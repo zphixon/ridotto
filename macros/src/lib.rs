@@ -2,7 +2,11 @@ use indexmap::IndexMap;
 use proc_macro::TokenStream;
 use quote::ToTokens;
 use syn::{
-    parenthesized, parse::Parse, parse_macro_input, punctuated::Punctuated, Ident, ItemFn, Token,
+    parenthesized,
+    parse::{Parse, Parser},
+    parse_macro_input,
+    punctuated::Punctuated,
+    Ident, ItemFn, Token,
 };
 
 #[derive(Debug, Clone, Copy)]
@@ -453,9 +457,47 @@ pub fn setup_trace(_: TokenStream) -> TokenStream {
     .into()
 }
 
+struct CallTreeFlag {
+    name: String,
+    value: bool,
+}
+
+impl Parse for CallTreeFlag {
+    fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
+        let name = input.parse::<Ident>()?.to_string();
+        let _eq: Token![=] = input.parse()?;
+        let value: syn::LitBool = input.parse()?;
+
+        Ok(CallTreeFlag {
+            name,
+            value: value.value,
+        })
+    }
+}
+
 #[proc_macro_attribute]
-pub fn call_tree(_args: TokenStream, input: TokenStream) -> TokenStream {
+pub fn call_tree(args: TokenStream, input: TokenStream) -> TokenStream {
     let mut input: ItemFn = parse_macro_input!(input);
+
+    let mut show_exit = true;
+    let mut only_exit = false;
+    let Ok(args) = Punctuated::<CallTreeFlag, Token![,]>::parse_terminated.parse(args) else {
+        return quote::quote! {
+            compile_error!("incorrect syntax")
+        }
+        .into_token_stream()
+        .into();
+    };
+    let args = args.into_iter().collect::<Vec<_>>();
+    for arg in args {
+        if arg.name == "show_exit" {
+            show_exit = arg.value;
+        }
+        if arg.name == "only_exit" {
+            only_exit = true;
+        }
+    }
+
     let input_name = input.sig.ident.clone();
     let inner = input.block.clone();
 
@@ -506,38 +548,50 @@ pub fn call_tree(_args: TokenStream, input: TokenStream) -> TokenStream {
         .join("");
     let inputs_format_args = quote::quote! { #(#non_parser_inputs,)* };
 
-    input.block = Box::new(syn::parse2(quote::quote! {
-        {
-            let level = INDENT.fetch_add(1, ::std::sync::atomic::Ordering::AcqRel);
-            let indent = "  ".repeat(level);
-            trace!(
-                concat!("{}{} {:?} {:?}", #inputs_format_spec),
-                indent,
-                stringify!(#input_name),
-                #parser.nth_exactly(0),
-                #parser.ignore_newline,
-                #inputs_format_args
-            );
+    input.block = Box::new(
+        syn::parse2(
+            quote::quote! {
+                {
+                    let level = INDENT.fetch_add(1, ::std::sync::atomic::Ordering::AcqRel);
 
-            let mut inner = || {
-                #inner
-            };
-            let result = inner();
+                    if !#only_exit {
+                        let indent = "  ".repeat(level);
+                        trace!(
+                            concat!("{}{} {:?} {:?}", #inputs_format_spec),
+                            indent,
+                            stringify!(#input_name),
+                            #parser.nth_exactly(0),
+                            #parser.ignore_newline,
+                            #inputs_format_args
+                        );
+                    }
 
-            let level = INDENT.fetch_sub(1, ::std::sync::atomic::Ordering::AcqRel);
-            let indent = "  ".repeat(level - 1);
-            trace!(
-                "{}{} {:?} {:?} ret={:?}",
-                indent,
-                stringify!(#input_name),
-                #parser.nth_exactly(0),
-                #parser.ignore_newline,
-                result,
-            );
+                    let mut inner = || {
+                        #inner
+                    };
+                    let result = inner();
 
-            result
-        }
-    }.into_token_stream()).unwrap());
+                    let level = INDENT.fetch_sub(1, ::std::sync::atomic::Ordering::AcqRel);
+
+                    if #show_exit || #only_exit {
+                        let indent = "  ".repeat(level - 1);
+                        trace!(
+                            "{}{} {:?} {:?} ret={:?}",
+                            indent,
+                            stringify!(#input_name),
+                            #parser.nth_exactly(0),
+                            #parser.ignore_newline,
+                            result,
+                        );
+                    }
+
+                    result
+                }
+            }
+            .into_token_stream(),
+        )
+        .unwrap(),
+    );
 
     quote::quote! {
         #input

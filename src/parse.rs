@@ -509,6 +509,7 @@ struct Parser<'src> {
 }
 
 impl<'src> Parser<'src> {
+    #[macros::call_tree(only_exit = true)]
     fn open(&mut self) -> MarkOpened {
         let mark = MarkOpened {
             index: self.events.len(),
@@ -519,14 +520,14 @@ impl<'src> Parser<'src> {
         mark
     }
 
-    #[macros::call_tree]
+    #[macros::call_tree(show_exit = false)]
     fn close(&mut self, m: MarkOpened, kind: TreeKind) -> MarkClosed {
         self.events[m.index] = Event::Open { kind };
         self.events.push(Event::Close);
         MarkClosed { index: m.index }
     }
 
-    #[macros::call_tree]
+    #[macros::call_tree(show_exit = false)]
     fn open_before(&mut self, m: MarkClosed) -> MarkOpened {
         let new_m = MarkOpened { index: m.index };
         self.events.insert(
@@ -538,7 +539,7 @@ impl<'src> Parser<'src> {
         new_m
     }
 
-    #[macros::call_tree]
+    #[macros::call_tree(show_exit = false)]
     fn advance(&mut self) {
         assert!(!self.eof());
         self.fuel.set(256);
