@@ -1,105 +1,13 @@
 // https://matklad.github.io/2023/05/21/resilient-ll-parsing-tutorial.html
 
+use crate::{tokens::*, tree::*};
 use logos::Logos;
 use std::{
     cell::Cell,
     fmt::Debug,
-    ops::{Bound, RangeBounds},
+    ops::{Bound, Range, RangeBounds},
 };
 use tracing::trace;
-
-#[rustfmt::skip]
-#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Logos)]
-#[logos(skip r"[\t ]+")]
-pub enum TokenKind {
-    #[token("[")] LSquare,
-    #[token("]")] RSquare,
-    #[token("(")] LParen,
-    #[token(")")] RParen,
-    #[token("{")] LCurly,
-    #[token("}")] RCurly,
-    #[token("-")] Minus,
-    #[token("->")] Arrow,
-    #[token("=>")] FatArrow,
-    #[token("&")] Amp,
-    #[token("&&")] DoubleAmp,
-    #[token("&=")] AmpEqual,
-    #[token(".")] Dot,
-    #[token("..")] DoubleDot,
-    #[token(",")] Comma,
-    #[token("=")] Equal,
-    #[token("==")] DoubleEqual,
-    #[token(":")] Colon,
-    #[token(";")] Semicolon,
-    #[token("+")] Plus,
-    #[token("+=")] PlusEqual,
-    #[token("!")] Exclam,
-    #[token("!=")] ExclamEqual,
-    #[token("~")] Tilde,
-    #[token("~=")] TildeEqual,
-    #[token("@")] At,
-    #[token("^")] Caret,
-    #[token("^=")] CaretEqual,
-    #[token("*")] Star,
-    #[token("*=")] StarEqual,
-    #[token("/")] Slash,
-    #[token("/=")] SlashEqual,
-    #[token("%")] Percent,
-    #[token("%=")] PercentEqual,
-    #[token("<")] LAngle,
-    #[token("<<")] DoubleLAngle,
-    #[token("<=")] LessEqual,
-    #[token("<>")] Diamond,
-    #[token("<=>")] Spaceship,
-    #[token(">")] RAngle,
-    #[token(">>")] DoubleRAngle,
-    #[token(">=")] GreaterEqual,
-    #[token("|")] Pipe,
-    #[token("|=")] PipeEqual,
-    #[token("||")] DoublePipe,
-    #[token("_")] Underscore,
-    #[token("class")] ClassKw,
-    #[token("impl")] ImplKw,
-    #[token("async")] AsyncKw,
-    #[token("const")] ConstKw,
-    #[token("export")] ExportKw,
-    #[token("builtin")] BuiltinKw,
-    #[token("static")] StaticKw,
-    #[token("func")] FuncKw,
-    #[token("type")] TypeKw,
-    #[token("where")] WhereKw,
-    #[token("is")] IsKw,
-    #[token("for")] ForKw,
-    #[token("in")] InKw,
-    #[token("match")] MatchKw,
-    #[token("let")] LetKw,
-    #[token("if")] IfKw,
-    #[token("else")] ElseKw,
-    #[token("and")] AndKw,
-    #[token("or")] OrKw,
-    #[token("await")] AwaitKw,
-    #[token("yield")] YieldKw,
-    #[token("break")] BreakKw,
-    #[token("return")] ReturnKw,
-    #[token("continue")] ContinueKw,
-    #[token("self")] SelfKw,
-    #[token("Self")] UpperSelfKw,
-
-    #[token("true")] TrueKw,
-    #[token("false")] FalseKw,
-    #[regex(r#"(0[box])?[0-9](\.[0-9])?(e[-+]?[0-9]+)?"#)] Number,
-    #[regex("[0-9]+", priority = 3)] WholeNumber,
-    #[regex(r#"'(\\.|[^'])*'|"(\\.|[^"])*""#)] String,
-    #[regex("#[^#\n]*")] Comment,
-    #[regex("##[^\n]*")] DocComment,
-    #[regex("_?[A-Z][a-zA-Z0-9_]*")] UpperIdent,
-    #[regex("_?[a-z][a-zA-Z0-9_]*")] LowerIdent,
-
-    #[regex("\n+")]
-    Newline,
-    Error,
-    Eof,
-}
 
 const FUNC_MODIFIERS: &[TokenKind] = &[
     TokenKind::AsyncKw,
@@ -109,324 +17,7 @@ const FUNC_MODIFIERS: &[TokenKind] = &[
     TokenKind::ExportKw,
 ];
 
-#[derive(Clone, Copy, PartialEq, Eq)]
-pub struct Pos {
-    line: usize,
-    col: usize,
-}
-
-impl Debug for Pos {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}:{}", self.line, self.col)
-    }
-}
-
-pub fn span_to_line_col(src: &str, span: Span) -> Pos {
-    let mut line = 1;
-    let mut col = 1;
-
-    for (byte_i, byte) in src.bytes().enumerate() {
-        if span.contains(byte_i) {
-            break;
-        }
-        if byte == b'\n' {
-            col = 1;
-            line += 1;
-            continue;
-        }
-        col += 1;
-    }
-
-    Pos { line, col }
-}
-
-#[derive(Clone, Copy, Default)]
-pub struct Span {
-    pub start: usize,
-    pub end_excl: usize,
-}
-
-impl Span {
-    pub fn contains(&self, i: usize) -> bool {
-        self.start <= i && i < self.end_excl
-    }
-}
-
-#[derive(Clone, Copy)]
-pub struct Token<'src> {
-    pub kind: TokenKind,
-    pub span: Span,
-    pub lexeme: &'src str,
-    pub src: &'src str,
-}
-
-impl Default for Token<'_> {
-    fn default() -> Self {
-        Token {
-            kind: TokenKind::Eof,
-            span: Span::default(),
-            lexeme: "",
-            src: "",
-        }
-    }
-}
-
-impl Debug for Token<'_> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "{:?} {:?}",
-            self.lexeme,
-            span_to_line_col(self.src, self.span)
-        )
-    }
-}
-
-impl<'src> From<Option<Token<'src>>> for Token<'src> {
-    fn from(value: Option<Token<'src>>) -> Self {
-        match value {
-            Some(st) => st,
-            None => Token::default(),
-        }
-    }
-}
-
-pub mod tree {
-    use super::*;
-
-    #[derive(PartialEq, Debug, macros::Ast)]
-    #[ast(
-        Expr = (
-            Paren, Literal, Variable, Binary, Unary, Call, FieldAccess,
-            ArrayAccess, TupleLiteral, ArrayList, If, Match, SelfParam,
-            Instantiate,
-        ),
-        Pattern = (
-            PatternWildcard, PatternIdent, PatternVariant, PatternAlternate,
-            PatternDestructure, PatternTuple, PatternArray, Literal,
-        ),
-    )]
-    pub enum TreeKind {
-        Error,
-
-        #[ast(contents = tree*(FuncDecl, TypeDecl))]
-        File,
-
-        #[ast(text = token+(DocComment))]
-        Doc,
-
-        #[ast(name = token(LowerIdent), ty = tree(TypeExpr))]
-        TypeAnnotated,
-
-        #[ast(expr = tree(TypeRef, TypeConcrete, TypeVar, TypeName, TypeTuple, TypeFunc, TypeSelf))]
-        TypeExpr,
-
-        #[ast(kw = token(UpperSelfKw))]
-        TypeSelf,
-
-        #[ast(expr = tree(TypeExpr))]
-        TypeRef,
-
-        #[ast(name = tree(TypeName), params = tree?(TypeParamList))]
-        TypeConcrete,
-
-        #[ast(name = token(LowerIdent))]
-        TypeVar,
-
-        // struct TypeName(Vec<UpperIdent>)
-        #[ast(name = token+(UpperIdent))]
-        TypeName,
-
-        #[ast(members = tree*(TypeExpr))]
-        TypeTuple,
-
-        #[ast(list = tree+(TypeExpr))]
-        TypeParamList,
-
-        #[ast(
-            doc = tree?(Doc),
-            name = tree(TypeName),
-            params = tree?(TypeParamList),
-            qual = tree?(TypeQualifierList),
-            def = tree?(TypeDeclInner, TypeDeclAlias, TypeDeclTupleVariant),
-        )]
-        TypeDecl,
-
-        #[ast(
-            fields = tree*(TypeDeclField),
-            methods = tree*(FuncDecl),
-            variants = tree*(TypeDecl),
-        )]
-        TypeDeclInner,
-
-        #[ast(doc = tree?(Doc), field = tree(TypeAnnotated))]
-        TypeDeclField,
-
-        #[ast(expr = tree(TypeExpr))]
-        TypeDeclAlias,
-
-        #[ast(members = tree*(TypeExpr))]
-        TypeDeclTupleVariant,
-
-        #[ast(qualifiers = tree+(TypeQualifier))]
-        TypeQualifierList,
-
-        #[ast(name = tree(TypeVar), aspect = tree(TypeExpr))]
-        TypeQualifier,
-
-        #[ast(
-            params = tree(TypeFuncParamList),
-            ret = tree?(TypeExpr),
-        )]
-        TypeFunc,
-
-        #[ast(params = tree*(TypeExpr))]
-        TypeFuncParamList,
-
-        #[ast(
-            doc = tree?(Doc),
-            modifiers = token*(AsyncKw, ConstKw, ExportKw, BuiltinKw, StaticKw),
-            name = token(LowerIdent),
-            type_params = tree?(TypeParamList),
-            qual = tree?(TypeQualifierList),
-            params = tree*(SelfParam, TypeAnnotated),
-            ret = tree?(TypeExpr),
-            body = tree(Body),
-        )]
-        FuncDecl,
-
-        #[ast(body = tree*(Statement))]
-        Body,
-
-        #[ast(inner = tree(Expr, Binding))]
-        Statement,
-
-        #[ast(value = token(Number, WholeNumber, String, TrueKw, FalseKw))]
-        Literal,
-
-        #[ast(values = tree*(Expr))]
-        TupleLiteral,
-
-        #[ast(value = token(LowerIdent))]
-        Variable,
-
-        #[ast(from = tree(Expr), field = token(LowerIdent, WholeNumber))]
-        FieldAccess,
-
-        #[ast(from = tree(Expr), access = tree(ArrayList))]
-        ArrayAccess,
-
-        #[ast(values = tree+(Expr))]
-        ArrayList,
-
-        #[ast(callee = tree(Expr), params = tree(ArgList))]
-        Call,
-
-        #[ast(values = tree*(Expr))]
-        ArgList,
-
-        #[ast(
-            op = token(
-                Star, Slash, Percent, Plus, Minus, Caret, Amp, Pipe, DoubleLAngle,
-                DoubleRAngle, LAngle, RAngle, LessEqual, GreaterEqual, DoubleEqual,
-                ExclamEqual, Diamond, Spaceship, InKw, AndKw, DoubleAmp, OrKw, DoublePipe,
-            ),
-            sides = tree+(Expr)
-        )]
-        Binary,
-
-        #[ast(inner = tree(Expr))]
-        Paren,
-
-        #[ast(op = token(Minus, Plus, Exclam, Amp, Tilde, At, Caret, AwaitKw, YieldKw), inner = tree(Expr))]
-        Unary,
-
-        #[ast(name = tree(TypeName), members = tree*(InstantiateField, InstantiateTupleMember))]
-        Instantiate,
-
-        #[ast(name = token(LowerIdent), value = tree(Expr))]
-        InstantiateField,
-
-        #[ast(value = tree(Expr))]
-        InstantiateTupleMember,
-
-        #[ast(cond = tree(Expr), body = tree(Body), else_if = tree?(If, ElseBody))]
-        If,
-
-        #[ast(scrutinee = tree(Expr), arms = tree*(MatchArm))]
-        Match,
-
-        #[ast(pat = tree(Pattern), body = tree(Body, Expr))]
-        MatchArm,
-
-        #[ast(body = tree(Body))]
-        ElseBody,
-
-        #[ast(pat = tree(Pattern), value = tree(Expr))]
-        Binding,
-
-        #[ast(token = token(Underscore))]
-        PatternWildcard,
-
-        #[ast(ident = token(LowerIdent))]
-        PatternIdent,
-
-        #[ast(variant = tree(TypeName), members = tree*(Pattern))]
-        PatternVariant,
-
-        #[ast(alt = tree+(Pattern))]
-        PatternAlternate,
-
-        #[ast(name = tree(TypeName), fields = tree+(PatternWildcard, PatternDestructureStructField, PatternDestructureTupleMember))]
-        PatternDestructure,
-
-        #[ast(field = token(LowerIdent), pat = tree?(Pattern))]
-        PatternDestructureStructField,
-
-        #[ast(pat = tree(Pattern))]
-        PatternDestructureTupleMember,
-
-        #[ast(members = tree*(Pattern))]
-        PatternTuple,
-
-        #[ast(members = tree*(Pattern))]
-        PatternArray,
-
-        #[ast(token = token(SelfKw))]
-        SelfParam,
-
-        ClassDecl,
-        ImplDecl,
-    }
-}
-
-pub use tree::*;
-
-pub struct Tree<'src> {
-    pub kind: TreeKind,
-    pub children: Vec<Child<'src>>,
-}
-
-impl Debug for Tree<'_> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let mut dbg = f.debug_tuple(&format!("{:?}", self.kind));
-
-        for child in self.children.iter() {
-            match child {
-                Child::Token(token) => {
-                    dbg.field(token);
-                }
-                Child::Tree(tree) => {
-                    dbg.field(tree);
-                }
-            }
-        }
-
-        dbg.finish()
-    }
-}
-
-pub fn parse(src: &str) -> Tree<'_> {
+pub fn parse(src: &str) -> (Tree<'_>, Vec<(String, Span)>) {
     let tokens = TokenKind::lexer(src)
         .spanned()
         .map(|(token, span)| Token {
@@ -457,40 +48,11 @@ pub fn parse(src: &str) -> Tree<'_> {
         ignore_newline: vec![true],
         fuel: Cell::new(256),
         events: vec![],
+        errors: vec![],
     };
 
     file(&mut parser);
     parser.build_tree()
-}
-
-#[derive(Debug)]
-pub enum Child<'src> {
-    Token(Token<'src>),
-    Tree(Tree<'src>),
-}
-
-impl Child<'_> {
-    pub fn is_token(&self) -> bool {
-        matches!(self, Child::Token(_))
-    }
-
-    pub fn as_token(&self) -> Token<'_> {
-        match self {
-            Child::Token(token) => *token,
-            Child::Tree(tree) => panic!("called as_token on non-token {:?}", tree.kind),
-        }
-    }
-
-    pub fn is_tree(&self) -> bool {
-        matches!(self, Child::Tree(_))
-    }
-
-    pub fn as_tree(&self) -> &Tree<'_> {
-        match self {
-            Child::Tree(tree) => tree,
-            Child::Token(token) => panic!("called as_tree on non-tree {:?}", token),
-        }
-    }
 }
 
 #[derive(Debug)]
@@ -517,6 +79,7 @@ struct Parser<'src> {
     ignore_newline: Vec<bool>,
     fuel: Cell<u32>,
     events: Vec<Event>,
+    errors: Vec<(String, Span)>,
 }
 
 impl<'src> Parser<'src> {
@@ -619,13 +182,18 @@ impl<'src> Parser<'src> {
         if self.eat(kind) {
             return;
         }
-        eprintln!("expected {:?}, got {:?}", kind, self.nth(0));
+        let error = (
+            format!("expected {:?}, got {:?}", kind, self.nth(0)),
+            self.nth(0).span,
+        );
+        self.errors.push(error);
     }
 
     #[macros::call_tree]
     fn advance_error(&mut self, error: &str) {
         let mark = self.open();
-        eprintln!("{error}");
+        self.errors
+            .push((format!("{}", error), self.nth_exactly(0).span));
         self.advance();
         self.close(mark, TreeKind::Error);
     }
@@ -641,7 +209,7 @@ impl<'src> Parser<'src> {
         }
     }
 
-    fn build_tree(self) -> Tree<'src> {
+    fn build_tree(self) -> (Tree<'src>, Vec<(String, Span)>) {
         let mut tokens = self.tokens.into_iter();
         let mut events = self.events;
         let mut stack = Vec::new();
@@ -672,7 +240,14 @@ impl<'src> Parser<'src> {
         assert_eq!(stack.len(), 1);
         assert!(tokens.next().is_none());
 
-        stack.pop().unwrap()
+        let tree = stack.pop().unwrap();
+
+        let mut errors = self.errors;
+        for error in tree.errors() {
+            errors.push((format!("idk error tree lol"), error.span()));
+        }
+
+        (tree, errors)
     }
 }
 
@@ -1229,7 +804,7 @@ fn arg_list(p: &mut Parser) {
     while !p.eof() && !p.at(TokenKind::RParen) {
         expr(p, true);
         if !p.eat(TokenKind::Comma) && !p.at(TokenKind::RParen) {
-            break
+            break;
         }
     }
     p.expect(TokenKind::RParen);
